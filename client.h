@@ -72,7 +72,7 @@ namespace serialrpc {
                     return {};
                 }
                 fmt::printf("client: start request done\n");
-                marshal(*conn, req, err);
+                marshal_fields(*conn, req, err);
                 fmt::printf("client: marshal request done\n");
                 if (err) {
                     fail();
@@ -118,7 +118,7 @@ namespace serialrpc {
                     c.fail();
                     return;;
                 }
-                marshal(*c.conn, req, err);
+                marshal_fields(*c.conn, req, err);
                 fmt::printf("client: marshal subscribe done\n");
                 if (err) {
                     c.fail();

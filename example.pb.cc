@@ -2,6 +2,7 @@
 // source: example.proto
 
 #include "example.pb.h"
+#include "lib/print.h"
 #include "serialrpc/encoding.h"
 
 using namespace lib;
@@ -23,6 +24,7 @@ namespace serialrpc {
 
         for (;;) {
             serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            print "got tag", tag.field_num, (int) tag.field_num, bool(err);
             if (err) {
                 return msg;
             }

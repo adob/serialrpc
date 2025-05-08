@@ -59,7 +59,7 @@ namespace serialrpc {
                 return;
             }
 
-            serialrpc::marshal(conn, msg, err);
+            serialrpc::marshal_fields(conn, msg, err);
             if (err) {
                 return;
             }
@@ -84,7 +84,7 @@ namespace serialrpc {
                 return;
             }
 
-            serialrpc::marshal(*s.conn, msg, err);
+            serialrpc::marshal_fields(*s.conn, msg, err);
             if (err) {
                 s.fail();
                 return;

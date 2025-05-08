@@ -90,10 +90,18 @@ namespace serialrpc {
     Tag read_tag(io::Reader &in, error err);
 
     template <typename T>
-    void marshal(io::Writer &out, T const& t, error err, int nesting = 128) {
+    void marshal_fields(io::Writer &out, T const& t, error err, int nesting = 128) {
         T::marshal(t, out, err, nesting);
     }
 
+    template <typename T>
+    void marshal(io::Writer &out, T const& t, error err, int nesting = 128) {
+        T::marshal(t, out, err, nesting);
+        if (err) {
+            return;
+        }
+        out.write_byte(Tag::End, err);
+    }
     template <>
     void marshal<int32>(io::Writer &out, int32 const& t, error err, int nesting);
     
@@ -134,17 +142,18 @@ namespace serialrpc {
 
     template <typename T>
     void marshal_field(io::Writer &out, int32 field_number, T const &t, error err, int nesting = 128) {
+        // if (t == T{}) {
+        //     return;
+        // }
         write_tag(out, field_number, Tag::Start, err);
         if (err) {
             return;
         }
         
-        T::marshal(t, out, err, nesting);
+        marshal(out, t, err, nesting);
         if (err) {
             return;
         }
-
-        write_tag(out, field_number, Tag::End, err);
     }
 
     template <>

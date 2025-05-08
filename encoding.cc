@@ -166,12 +166,12 @@ void serialrpc::skip(io::Reader &in, Tag::Type type, error err, int nesting) {
 }
 
 template <>
-void serialrpc::marshal<int32>(io::Writer &out, int32 const& t, error err, int nesting) {
+void serialrpc::marshal<int32>(io::Writer &out, int32 const& t, error err, int /*nesting*/) {
     varint::write_sint32(out, t, err);
 }
 
 template <>
-void serialrpc::marshal<uint32>(io::Writer &out, uint32 const& t, error err, int nesting) {
+void serialrpc::marshal<uint32>(io::Writer &out, uint32 const& t, error err, int /*nesting*/) {
     varint::write_uint32(out, t, err);
 }
 
@@ -187,6 +187,9 @@ uint32 serialrpc::unmarshal<uint32>(io::Reader &in, error err, int /*nesting*/) 
 
 template <>
 void serialrpc::marshal_field<int32>(io::Writer &out, int32 field_number, int32 const &val, error err, int /*nesting*/) {
+    if (val == 0) {
+        return;
+    }
     write_tag(out, field_number, Tag::I32, err);
     if (err) {
         return;
