@@ -6,14 +6,15 @@ namespace serialrpc {
     
     enum ServerMessageType : byte {
         Reply         = 1,
-        ErrorReply    = 2,
-        UnknownRPC    = 3,
-        TooBig        = 4,
-        BadMessage    = 5,
-        FatalError    = 6,
+        Event         = 2,
+        ErrorReply    = 3,
+        Unknown       = 4,
+        TooBig        = 5,
+        BadMessage    = 6,
+        FatalError    = 7,
         
-        ServerHello   = 7,
-        ServerGoodbye = 8,
+        ServerHello   = 8,
+        ServerGoodbye = 9,
     };
     
     enum ClientMessageType : byte {

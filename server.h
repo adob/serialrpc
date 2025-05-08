@@ -1,23 +1,28 @@
 #pragma once
 
+#include "lib/sync/lock.h"
+#include "lib/sync/mutex.h"
 #include "rpc.h"
 #include "encoding.h"
 
 #include "lib/error.h"
 #include "lib/array.h"
 #include "lib/io/io.h"
+#include <atomic>
 
 
 namespace serialrpc {
     using namespace lib;
 
     struct ServerBase {
+        io::ReaderWriter *conn = nil;
+        sync::Mutex send_mtx;
 
-        struct ErrorReporter : ErrorReporterInterface {
+        struct ServerErrorHandler : ErrorReporterInterface {
             io::ReaderWriter &conn;
             error err;
 
-            ErrorReporter(io::ReaderWriter &conn, error err);
+            ServerErrorHandler(io::ReaderWriter &conn, error err);
 
             virtual void report(Error &) override;
         } ;
@@ -25,23 +30,30 @@ namespace serialrpc {
         void accept(io::ReaderWriter &conn, error err);
 
       protected:
-        virtual void handle_request(io::ReaderWriter &conn, uint32 rpc_id, error err) = 0;
+        virtual void handle_request(uint32 rpc_id, io::ReaderWriter &conn, error err) = 0;
+        virtual void unsubscribe_all() = 0;
 
         void serve_request(io::ReaderWriter &conn, error err);
+        void stop_accept();
+        void fail();
 
         void start_reply(io::ReaderWriter &conn, error err);
+        void start_event(uint32 event_id, error err);
 
-        void finish_reply(io::ReaderWriter &conn, error err);
+        void finish_msg(io::ReaderWriter &conn, error err);
 
         void send_code(io::ReaderWriter &conn, ServerMessageType code,
                        error err);
 
         void send_error(io::ReaderWriter &conn, error const &rpc_error, error err);
 
-        void handle_goodbye(io::ReaderWriter &conn, error err);
+        void handle_goodbye(error err);
 
         template <typename T>
         void send_reply(io::ReaderWriter &conn, T const &msg, error err) {
+            ServerBase &s = *this;
+            sync::Lock lock(s.send_mtx);
+
             start_reply(conn, err);
             if (err) {
                 return;
@@ -52,8 +64,35 @@ namespace serialrpc {
                 return;
             }
 
-            finish_reply(conn, err);
+            finish_msg(conn, err);
             if (err) {
+                return;
+            }
+        }
+
+        template <typename T>
+        void send_event(uint32 event_id, T const &msg) {
+            ServerBase &s = *this;
+            sync::Lock lock(s.send_mtx);
+            if (s.conn == nil) {
+                return;
+            }
+            ErrorReporter err = [](Error&) {};
+            s.start_event(event_id, err);
+            if (err) {
+                s.fail();
+                return;
+            }
+
+            serialrpc::marshal(*s.conn, msg, err);
+            if (err) {
+                s.fail();
+                return;
+            }
+
+            finish_msg(*s.conn, err);
+            if (err) {
+                s.fail();
                 return;
             }
         }

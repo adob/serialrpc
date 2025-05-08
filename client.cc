@@ -1,5 +1,6 @@
 #include "client.h"
 #include "lib/time/time.h"
+#include "lib/varint/varint.h"
 #include "rpc.h"
 #include "internal.h"
 #include "encoding.h"
@@ -92,7 +93,7 @@ void Client::input() {
             handle_reply(type, err);
             continue;
         
-        case ServerMessageType::UnknownRPC:
+        case ServerMessageType::Unknown:
             handle_error(type);
             continue;
             
@@ -279,7 +280,7 @@ str Client::call(uint method_id, str data, error err) {
         err("serialrpc server error: %v", pending_reply);
         return "";
 
-    case UnknownRPC:
+    case Unknown:
         err(ErrUnknownMethod());
         break;
 
@@ -465,6 +466,7 @@ void ClientBase::start_unlocked(error err) {
 }
 
 void ClientBase::input() {
+    ClientBase &c = *this;
     print "input started";
     ErrorReporter err = [&](Error &e){
         eprint "serialrpc error: %v" % e;
@@ -501,11 +503,23 @@ void ClientBase::input() {
         switch (type) {
         case ServerMessageType::Reply:
         case ServerMessageType::ErrorReply:
-        case ServerMessageType::UnknownRPC:
+        case ServerMessageType::Unknown:
         case ServerMessageType::TooBig:
         case ServerMessageType::BadMessage:
             handle_reply(type);
             continue;
+
+        case Event: {
+            uint32 event_id = varint::read_uint32(*c.conn, err);
+            if (err) {
+                return;
+            }
+            c.handle_event(event_id, err);
+            if (err) {
+                return;
+            }
+            continue;
+        }
             
         case ServerMessageType::FatalError:
             err(ErrFatal());

@@ -96,7 +96,12 @@ namespace serialrpc {
         return answer == other.answer;
     }
 
-    void SumEventsRequest::marshal(SumEventsRequest const &req, lib::io::Writer &out, lib::error err, int nesting) {}
+    void SumEventsRequest::marshal(SumEventsRequest const &req, lib::io::Writer &out, lib::error err, int nesting) {
+        serialrpc::marshal_field(out, req.VFieldNumber, req.v, err, nesting-1);
+        if (err) {
+            return;
+        }
+    }
 
     SumEventsRequest SumEventsRequest::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
         SumEventsRequest msg;
@@ -112,6 +117,10 @@ namespace serialrpc {
             }
 
             switch (tag.field_num) {
+            case VFieldNumber:
+                msg.v = serialrpc::unmarshal<int32_t>(in, err, nesting-1);
+                break;
+
             default:
                 serialrpc::skip(in, tag.type, err, nesting-1);
                 if (err) {
@@ -124,7 +133,7 @@ namespace serialrpc {
     }
 
     bool SumEventsRequest::operator==(const SumEventsRequest& other) const {
-        ;
+        return v == other.v;
     }
 
     void SumEvent::marshal(SumEvent const &req, lib::io::Writer &out, lib::error err, int nesting) {
@@ -212,14 +221,18 @@ namespace serialrpc {
         : sum_service(sum_service)
     {}
 
-    void RPCServer::handle_request(lib::io::ReaderWriter &conn, lib::uint32 rpc_id, lib::error err) {
+    void RPCServer::send_SumService_sum_events(SumEvent const &msg) {
+        this->send_event(1, msg);
+    }
+
+    void RPCServer::handle_request(lib::uint32 rpc_id, lib::io::ReaderWriter &conn, lib::error err) {
         switch (rpc_id) {
         case 1: {
             SumRequest msg = serialrpc::unmarshal<SumRequest>(conn, err);
             if (err) {
                 return;
             }
-            SumResponse resp = sum_service.sum(msg, ErrorReporter(conn, err));
+            SumResponse resp = sum_service.sum(msg, RPCServer::ServerErrorHandler(conn, err));
             if (err) {
                 return;
             }
@@ -243,11 +256,19 @@ namespace serialrpc {
             } else {
                 sum_service.unsubscribe_sum_events();
             }
+            send_code(conn, serialrpc::Reply, err);
+            if (err) {
+                return;
+            }
             break;
         }
         default:
-            send_code(conn, serialrpc::UnknownRPC, err);
-        }
+            send_code(conn, serialrpc::Unknown, err);
+        } // switch
+    }
+
+    void RPCServer::unsubscribe_all() {
+        this->sum_service.unsubscribe_sum_events();
     }
 
     RPCClient::RPCClient(std::shared_ptr<lib::io::ReaderWriter> const &conn)
@@ -263,7 +284,40 @@ namespace serialrpc {
         return this->client.call<SumRequest const&, SumResponse>(1, req, err);
     }
 
-    void RPCClient::SumServiceStub::subscribe_sum_events(SumEventsRequest const &req, std::function<void(SumEventsRequest const&)> const &cb) {}
+    void RPCClient::SumServiceStub::subscribe_sum_events(SumEventsRequest const &req, std::function<void(SumEvent const&)> const &cb, lib::error err) {
+        sync::Lock lock(this->mtx);
+        this->sum_events_cb = cb;
+        this->client.subscribe(2, req, err);
+    }
 
-    void RPCClient::SumServiceStub::unsubscribe_sum_events() {}
+    void RPCClient::SumServiceStub::unsubscribe_sum_events(lib::error err) {
+        sync::Lock lock(this->mtx);
+        this->client.unsubscribe(2, err);
+        if (err) {
+            return;
+        }
+        this->sum_events_cb = {};
+    }
+
+    void RPCClient::SumServiceStub::handle_sum_events(SumEvent const &msg) {
+        sync::Lock lock(this->mtx);
+        if (this->sum_events_cb) {
+            this->sum_events_cb(msg);
+        }
+    }
+
+    void RPCClient::handle_event(lib::uint32 event_id, lib::error err) {
+        switch (event_id) {
+        case 1: {
+            SumEvent msg = serialrpc::unmarshal<SumEvent>(*this->conn, err);
+            if (err) {
+                return;
+            }
+            this->sum_service.handle_sum_events(msg);
+            break;
+        }
+        default:
+            err("unknown event");
+        } // switch
+    }
 }

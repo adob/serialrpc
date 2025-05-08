@@ -14,7 +14,7 @@ message SumResponse {
 }
 
 message SumEventsRequest {
-
+    int32 v = 1;
 }
 
 message SumEvent {

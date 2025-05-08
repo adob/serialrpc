@@ -8,7 +8,6 @@
 #include <memory>
 #include "lib/error.h"
 #include "lib/io/io.h"
-#include "lib/str.h"
 #include "serialrpc/server.h"
 #include "serialrpc/client.h"
 
@@ -49,6 +48,10 @@ namespace serialrpc {
         static SumEventsRequest unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
 
         bool operator==(const SumEventsRequest& other) const;
+
+        int32_t v = {};
+
+        static const uint32_t VFieldNumber = 1;
     };
 
     struct SumEvent {
@@ -86,9 +89,13 @@ namespace serialrpc {
     struct RPCServer : serialrpc::ServerBase {
         explicit RPCServer(SumService &sum_service);
 
+        void send_SumService_sum_events(SumEvent const &msg);
+
         SumService& sum_service;
 
-        void handle_request(lib::io::ReaderWriter &conn, lib::uint32 rpc_id, lib::error err) override;
+        void handle_request(lib::uint32 rpc_id, lib::io::ReaderWriter &conn, lib::error err) override;
+
+        void unsubscribe_all() override;
     };
 
     struct RPCClient : serialrpc::ClientBase {
@@ -97,15 +104,21 @@ namespace serialrpc {
         struct SumServiceStub {
             RPCClient& client;
 
-            std::function<void(SumEventsRequest const&)> sum_events_cb;
+            lib::sync::Mutex mtx;
+
+            std::function<void(SumEvent const&)> sum_events_cb;
 
             explicit SumServiceStub(RPCClient &client);
 
             SumResponse sum(SumRequest const &req, lib::error err);
 
-            void subscribe_sum_events(SumEventsRequest const &req, std::function<void(SumEventsRequest const&)> const &cb);
+            void subscribe_sum_events(SumEventsRequest const &req, std::function<void(SumEvent const&)> const &cb, lib::error err);
 
-            void unsubscribe_sum_events();
+            void unsubscribe_sum_events(lib::error err);
+
+            void handle_sum_events(SumEvent const &msg);
         } sum_service;
+
+        void handle_event(lib::uint32 event_id, lib::error err) override;
     };
 }

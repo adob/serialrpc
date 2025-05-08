@@ -80,9 +80,31 @@ PipePair make_pipe() {
 // }
 
 struct Summer : SumService {
+    RPCServer *server = nil;
+
     SumResponse sum(SumRequest const &req, error) override {
         print "sum service got", req.left, req.right;
         return {.answer = req.left + req.right};
+    }
+
+    void subscribe_sum_events(RPCServer &server, SumEventsRequest const &req) override {
+        print "SERVER GOT SUBSCRIBE";
+        if (req.v != 42) {
+            panic("bad req value");
+        }
+        if (this->server) {
+            panic("server already set");
+        }
+        this->server = &server;
+    }
+
+    void unsubscribe_sum_events() override {
+        print "SERVER GOT UNSUBSCRIBE";
+        this->server = nil;
+    }
+
+    void do_event(int i) {
+        server->send_SumService_sum_events({.event = i });
     }
 } ;
 
@@ -121,8 +143,23 @@ void test_e2e(testing::T &t) {
 
     print "got call result", resp.answer;
 
+    print "EVENTS BEGIN";
+    std::vector<int> received_events;
+    client.sum_service.subscribe_sum_events({ .v = 42 }, [&](SumEvent const &event) {
+        print "GOT EVENT", event.event;
+        received_events.push_back(event.event);
+    }, error::panic);
+
+    summer.do_event(1);
+    summer.do_event(2);
+    summer.do_event(3);
+
     stop.store(true);
     client.close(error::panic);
+
+    if (received_events != std::vector<int>{1, 2, 3}) {
+        t.errorf("received events got %v; want [1, 2, 3]", received_events);
+    }
 }
 
 int xmain(int argc, char *argv[]) {

@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <atomic>
 
+#include "lib/io/io.h"
 #include "lib/sync/atomic.h"
 #include "lib/sync/cond.h"
 #include "lib/sync/go.h"
@@ -57,6 +58,8 @@ namespace serialrpc {
         CallData *head = nil;
         CallData *tail = nil;
 
+        virtual void handle_event(uint32 event_id, error err) = 0;
+
         template <typename Req, typename Resp>
         Resp call(uint32 rpc_id, Req const &req, error err) {
             ClientBase &c = *this;
@@ -97,6 +100,78 @@ namespace serialrpc {
                 return {};
             }
             return resp;
+        }
+
+        template <typename T>
+        void subscribe(uint32 event_id, T const &req, error err) {
+            ClientBase &c = *this;
+            CallData call_data;
+            {
+                sync::Lock lock(c.call_mtx);
+                c.start_request(event_id, &call_data, err);
+                if (err) {
+                    c.fail();
+                    return;
+                }
+                c.conn->write_byte(1, err);
+                if (err) {
+                    c.fail();
+                    return;;
+                }
+                marshal(*c.conn, req, err);
+                fmt::printf("client: marshal subscribe done\n");
+                if (err) {
+                    c.fail();
+                    return;
+                }
+                finish_request(err);    
+                if (err) {
+                    c.fail();
+                    return;
+                }
+            }
+            
+            fmt::printf("sent request; now waiting for data\n");
+            call_data.response_received.wait(false);
+
+            ServerMessageType type = call_data.type.load();
+            if (type != ServerMessageType::Reply) {
+                c.handle_error_response(err);
+                return;
+            }
+        }
+
+        void unsubscribe(uint32 event_id, error err) {
+            ClientBase &c = *this;
+            CallData call_data;
+            {
+                sync::Lock lock(c.call_mtx);
+                c.start_request(event_id, &call_data, err);
+                if (err) {
+                    c.fail();
+                    return;
+                }
+                fmt::printf("client: start request done\n"); 
+                c.conn->write_byte(0, err);
+                if (err) {
+                    c.fail();
+                    return;;
+                }
+                c.finish_request(err);    
+                if (err) {
+                    c.fail();
+                    return;
+                }
+            }
+            
+            fmt::printf("sent request; now waiting for data\n");
+            call_data.response_received.wait(false);
+
+            ServerMessageType type = call_data.type.load();
+            if (type != ServerMessageType::Reply) {
+                handle_error_response(err);
+                return;
+            }
         }
 
         void start_unlocked(error err);

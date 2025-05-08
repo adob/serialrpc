@@ -1,6 +1,7 @@
 #include "server.h"
 #include "lib/error.h"
 #include "lib/io/io.h"
+#include "lib/varint/varint.h"
 #include "rpc.h"
 #include "internal.h"
 #include "lib/print.h"
@@ -118,7 +119,7 @@ void Server::handle_request(io::ReaderWriter &conn, error err) {
     }
 
     if (!ctx.handled) {
-        conn.write_byte((byte) UnknownRPC, err);
+        conn.write_byte((byte) Unknown, err);
         if (err) {
             return;
         }
@@ -170,7 +171,7 @@ void CallCtx::send_error(str data) {
     conn.flush(err);
 }
 
-void ServerBase::finish_reply(io::ReaderWriter &conn, error err) {
+void ServerBase::finish_msg(io::ReaderWriter &conn, error err) {
     conn.write_byte(byte(Tag::End), err);
     if (err) {
         return;
@@ -202,10 +203,10 @@ void serialrpc::ServerBase::send_error(io::ReaderWriter &conn, error const &rpc_
     conn.flush(err);
 }
 
-ServerBase::ErrorReporter::ErrorReporter(io::ReaderWriter &conn, error err)
+ServerBase::ServerErrorHandler::ServerErrorHandler(io::ReaderWriter &conn, error err)
         : conn(conn), err(err) {}
 
-void ServerBase::ErrorReporter::report(Error &rpc_error) {
+void ServerBase::ServerErrorHandler::report(Error &rpc_error) {
     conn.write_byte(byte(ServerMessageType::ErrorReply), err);
     if (err) {
         return;
@@ -218,31 +219,45 @@ void ServerBase::ErrorReporter::report(Error &rpc_error) {
 
     conn.flush(err);
 }
-void serialrpc::ServerBase::serve_request(io::ReaderWriter &conn, error err) {
+void ServerBase::serve_request(io::ReaderWriter &conn, error err) {
+    ServerBase &s = *this;
     uint32 rpc_id = varint::read_uint32(conn, err);
     if (err) {
         return;
     }
 
     if (rpc_id == 0) {
-        handle_goodbye(conn, err);
+        s.handle_goodbye(err);
         return;
     }
 
     print "server got rpc_id", rpc_id;
 
-    this->handle_request(conn, rpc_id, err);
+    s.handle_request(rpc_id, conn, err);
     if (err) {
         return;
     }
 }
 
-void serialrpc::ServerBase::handle_goodbye(io::ReaderWriter &conn, error err) {
-    conn.write_byte((byte) ServerGoodbye, err);
-    conn.flush(err);
+void serialrpc::ServerBase::handle_goodbye(error err) {
+    ServerBase &s = *this;
+
+    s.conn->write_byte(byte(ServerGoodbye), err);
+    s.conn->flush(err);
+    s.stop_accept();
 }
 void serialrpc::ServerBase::start_reply(io::ReaderWriter &conn, error err) {
-    conn.write_byte((byte)ServerMessageType::Reply, err);
+    conn.write_byte(byte(Reply), err);
+}
+
+void ServerBase::start_event(uint32 event_id, error err) {
+    ServerBase &s = *this;
+    s.conn->write_byte(byte(Event), err);
+    if (err) {
+        return;
+    }
+
+    varint::write_uint32(*s.conn, event_id, err);
 }
 
 void ServerBase::accept(io::ReaderWriter &conn, error err) {
@@ -259,12 +274,17 @@ void ServerBase::accept(io::ReaderWriter &conn, error err) {
         return;
     }
 
-    conn.write_byte(byte(ServerHello), err);
-    conn.flush(err);
+    {
+        sync::Lock lock(s.send_mtx);
+        s.conn = &conn;
+        conn.write_byte(byte(ServerHello), err);
+        conn.flush(err);
+    }
 
     for (;;) {
         uint32 rpc_id = varint::read_uint32(conn, err);
         if (err) {
+            stop_accept();
             return;
         }
 
@@ -272,11 +292,31 @@ void ServerBase::accept(io::ReaderWriter &conn, error err) {
 
         if (rpc_id == 0) {
             print "server: sending goodbye...";
-            handle_goodbye(conn, err);
+            s.handle_goodbye(err);
             print "server: sent goodbye, returning";
             return;
         }
 
-        s.handle_request(conn, rpc_id, err);
+        s.handle_request(rpc_id, conn, err);
+        if (err) {
+            s.stop_accept();
+            return;
+        }
     }
+}
+
+void ServerBase::stop_accept() {
+    ServerBase &s = *this;
+    
+    s.unsubscribe_all();
+
+    sync::Lock lock(s.send_mtx);
+    s.conn = nil;
+}
+
+void ServerBase::fail() {
+    ServerBase &s = *this;
+    
+    s.unsubscribe_all();
+    s.conn = nil;
 }
