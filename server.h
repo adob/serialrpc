@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "lib/sync/lock.h"
 #include "lib/sync/mutex.h"
 #include "rpc.h"
@@ -8,15 +10,14 @@
 #include "lib/error.h"
 #include "lib/array.h"
 #include "lib/io/io.h"
-#include <atomic>
-
+#include "serial/serial_listener.h"
 
 namespace serialrpc {
     using namespace lib;
 
     struct ServerBase {
-        io::ReaderWriter *conn = nil;
-        sync::Mutex send_mtx;
+        serial::Conn *conn = nil;
+        // sync::Mutex send_mtx;
 
         struct ServerErrorHandler : ErrorReporterInterface {
             io::ReaderWriter &conn;
@@ -27,7 +28,8 @@ namespace serialrpc {
             virtual void report(Error &) override;
         } ;
 
-        void accept(io::ReaderWriter &conn, error err);
+        void serve(serial::Listener &listener, error err);
+        void accept(serial::Conn &conn, error err);
 
       protected:
         virtual void handle_request(uint32 rpc_id, io::ReaderWriter &conn, error err) = 0;
@@ -52,14 +54,14 @@ namespace serialrpc {
         template <typename T>
         void send_reply(io::ReaderWriter &conn, T const &msg, error err) {
             ServerBase &s = *this;
-            sync::Lock lock(s.send_mtx);
+            sync::Lock lock(s.conn->write_mtx);
 
             start_reply(conn, err);
             if (err) {
                 return;
             }
 
-            serialrpc::marshal_fields(conn, msg, err);
+            marshal(conn, msg, err);
             if (err) {
                 return;
             }
@@ -73,7 +75,7 @@ namespace serialrpc {
         template <typename T>
         void send_event(uint32 event_id, T const &msg) {
             ServerBase &s = *this;
-            sync::Lock lock(s.send_mtx);
+            sync::Lock lock(s.conn->write_mtx);
             if (s.conn == nil) {
                 return;
             }
@@ -84,7 +86,7 @@ namespace serialrpc {
                 return;
             }
 
-            serialrpc::marshal_fields(*s.conn, msg, err);
+            marshal(*s.conn, msg, err);
             if (err) {
                 s.fail();
                 return;

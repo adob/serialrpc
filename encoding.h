@@ -86,27 +86,68 @@ namespace serialrpc {
         int32 field_num = 0;
     } ;
 
-    Tag read_tag(str *data, error err);
+    // Tag read_tag(str *data, error err);
     Tag read_tag(io::Reader &in, error err);
 
-    template <typename T>
-    void marshal_fields(io::Writer &out, T const& t, error err, int nesting = 128) {
-        T::marshal(t, out, err, nesting);
-    }
+    const int MaxNesting = 128;
+
+    struct Stack {
+        int size = 0;
+        uint32 elems[MaxNesting];
+
+        void push(uint32 e) {
+            if (size == MaxNesting) {
+                panic("out of space");
+            }
+            elems[size++] = e;
+        }
+
+        void clear() {
+            size = 0;
+        }
+
+        uint32 *begin() { return elems; }
+        uint32 *end() { return elems+size; }
+    } ;
+
+    // template <typename T>
+    // void marshal_fields(io::Writer &out, T const& t, error err, int nesting, Stack &stack) {
+    //     T::marshal(t, out, err, nesting, stack);
+    // }
+
+    void write_tag(io::Writer &out, int32 field_number, Tag::Type type, error err);
 
     template <typename T>
-    void marshal(io::Writer &out, T const& t, error err, int nesting = 128) {
-        T::marshal(t, out, err, nesting);
+    void marshal_field(io::Writer &out, int32 field_number, T const &t, error err, int nesting, Stack &stack) {
+        stack.push(field_number);
+        
+        T::marshal(t, out, err, nesting, stack);
+        if (err) {
+            return;
+        }
+
+        if (stack.size == 0) {
+            out.write_byte(Tag::End, err);
+        }
+    }
+    
+    void marshal_field(io::Writer &out, int32 field_number, int32 val, error err, int nesting, Stack &stack);
+
+    template <typename T>
+    void marshal(io::Writer &out, T const& t, error err) {
+        Stack stack;
+        T::marshal(t, out, err, MaxNesting, stack);
         if (err) {
             return;
         }
         out.write_byte(Tag::End, err);
     }
-    template <>
-    void marshal<int32>(io::Writer &out, int32 const& t, error err, int nesting);
+
+    // template <>
+    // void marshal<int32>(io::Writer &out, int32 const& t, error err, int nesting, Stack &stack);
     
-    template <>
-    void marshal<uint32>(io::Writer &out, uint32 const& t, error err, int nesting);
+    // template <>
+    // void marshal<uint32>(io::Writer &out, uint32 const& t, error err, int nesting, Stack &stack);
 
     // template <typename T>
     // T unmarshal(str *data, error err, int nesting = 128) {
@@ -138,28 +179,7 @@ namespace serialrpc {
     template <>
     uint32 unmarshal<uint32>(io::Reader &in, error err, int /*nesting*/);
 
-    void write_tag(io::Writer &out, int32 field_number, Tag::Type type, error err);
-
-    template <typename T>
-    void marshal_field(io::Writer &out, int32 field_number, T const &t, error err, int nesting = 128) {
-        // if (t == T{}) {
-        //     return;
-        // }
-        write_tag(out, field_number, Tag::Start, err);
-        if (err) {
-            return;
-        }
-        
-        marshal(out, t, err, nesting);
-        if (err) {
-            return;
-        }
-    }
-
-    template <>
-    void marshal_field<int32>(io::Writer &out, int32 field_number, int32 const &val, error err, int nesting);
-
-    void skip(str *data, Tag::Type type, error err, int nesting = 128);
+    // void skip(str *data, Tag::Type type, error err, int nesting = 128);
     void skip(io::Reader &in, Tag::Type type, error err, int nesting = 128);
 
     void write_chunked(io::Writer &out, io::WriterTo const &msg, error err);

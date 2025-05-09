@@ -1,5 +1,4 @@
 #include "client.h"
-#include "lib/time/time.h"
 #include "lib/varint/varint.h"
 #include "rpc.h"
 #include "internal.h"
@@ -396,6 +395,7 @@ void ClientBase::start_request(uint32 rpc_id, CallData *call_data, error err) {
         return;
     }
 
+    // push call data
     if (c.head == nil) {
         c.head = call_data;
     }
@@ -407,24 +407,22 @@ void ClientBase::start_request(uint32 rpc_id, CallData *call_data, error err) {
 
 void ClientBase::finish_request(error err) {
     ClientBase &c = *this;
-    c.conn->write_byte(Tag::End, err);
-    if (err) {
-        return;
-    }
     c.conn->flush(err);
 }
 
 void ClientBase::handle_error_response(error err) {
     String text = read_chunked(*conn, err);
     if (err) {
-        fail();
+        fail(sync::Lock(call_mtx));
     }
 
     err(fmt::errorf("rpc error: %s", text));
 }
 
-void ClientBase::fail() {
+void ClientBase::fail(sync::Lock const&) {
     ClientBase &c = *this;
+    c.head = nil;
+    c.tail = nil;
 
 again:
     State state = c.state.load();
@@ -506,7 +504,7 @@ void ClientBase::input() {
         case ServerMessageType::Unknown:
         case ServerMessageType::TooBig:
         case ServerMessageType::BadMessage:
-            handle_reply(type);
+            handle_reply(type, err);
             continue;
 
         case Event: {
@@ -542,12 +540,15 @@ void ClientBase::input() {
     }    
 }
 
-void ClientBase::handle_reply(ServerMessageType type) {
+void ClientBase::handle_reply(ServerMessageType type, error err) {
     ClientBase &c = *this;
     // pop call data
     CallData *call_data;
     {
         sync::Lock lock(call_mtx);
+        if (c.head == nil) {
+            err("unexpected reply");
+        }
         call_data = c.head;
         if (c.head == c.tail) {
             c.tail = nil;
@@ -555,11 +556,13 @@ void ClientBase::handle_reply(ServerMessageType type) {
         c.head = c.head->next;
     }
 
-    call_data->type.store(type);
-    call_data->response_received.store(true);
-    call_data->response_received.notify_one();
+    if (type != ServerMessageType::Reply) {
+        call_data->client->handle_error_response(*call_data->err);
+    } else if (call_data->unmarshal) {
+        call_data->unmarshal(call_data, *c.conn);
+    }
 
-    call_data->caller_done.wait(false);
+    call_data->response_received.notify();
 }
 
 void ClientBase::client_hello(error err) {
@@ -601,5 +604,30 @@ again:
 
     this->call_cond.signal();
 }
-serialrpc::ClientBase::ClientBase(std::shared_ptr<lib::io::ReaderWriter> conn)
+
+ClientBase::ClientBase(std::shared_ptr<lib::io::ReaderWriter> conn)
     : conn(conn) {}
+
+void ClientBase::Waiter::notify() {
+
+    state.store(1, std::memory_order::release);
+    state.notify_one();
+    state.store(2);
+}
+
+void ClientBase::Waiter::wait() {
+    for (;;) {
+        int s = state.load(std::memory_order::acquire);
+        if (s == 0) {
+        state.wait(0);
+        continue;
+        }
+        if (s == 2) {
+        return;
+        }
+        // spin wait
+    }
+}
+serialrpc::ClientBase::~ClientBase() {
+    this->close(error::ignore);
+}

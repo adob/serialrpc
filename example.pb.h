@@ -15,7 +15,7 @@ namespace serialrpc {
     struct RPCServer;
 
     struct SumRequest {
-        static void marshal(SumRequest const &req, lib::io::Writer &out, lib::error err, int nesting = 128);
+        static void marshal(SumRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumRequest unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
 
@@ -31,7 +31,7 @@ namespace serialrpc {
     };
 
     struct SumResponse {
-        static void marshal(SumResponse const &req, lib::io::Writer &out, lib::error err, int nesting = 128);
+        static void marshal(SumResponse const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumResponse unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
 
@@ -43,7 +43,7 @@ namespace serialrpc {
     };
 
     struct SumEventsRequest {
-        static void marshal(SumEventsRequest const &req, lib::io::Writer &out, lib::error err, int nesting = 128);
+        static void marshal(SumEventsRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumEventsRequest unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
 
@@ -55,7 +55,7 @@ namespace serialrpc {
     };
 
     struct SumEvent {
-        static void marshal(SumEvent const &req, lib::io::Writer &out, lib::error err, int nesting = 128);
+        static void marshal(SumEvent const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumEvent unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
 
@@ -67,7 +67,7 @@ namespace serialrpc {
     };
 
     struct Message2 {
-        static void marshal(Message2 const &req, lib::io::Writer &out, lib::error err, int nesting = 128);
+        static void marshal(Message2 const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static Message2 unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
 

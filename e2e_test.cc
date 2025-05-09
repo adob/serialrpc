@@ -1,10 +1,8 @@
 #include "lib/io/io.h"
 #include "lib/io/pipe.h"
 #include "lib/testing/testing.h"
-#include "example_service.h"
 #include "lib/print.h"
-#include "serialrpc/client.h"
-#include "serialrpc/server.h"
+#include "serial/serial_listener.h"
 #include "example.pb.h"
 
 #include <memory>
@@ -46,39 +44,6 @@ PipePair make_pipe() {
     return p;
 }
 
-// void test_e2e(testing::T &t) {
-//     ExampleService service;
-//     Server server(service);
-
-//     auto [client_conn, server_conn] = make_pipe();
-//     sync::atomic<bool> stop = false;
-
-//     sync::go g1 = [&]{
-//         for (;;) {
-//             if (stop.load()) {
-//                 return;
-//             }
-//             server.handle_rpc(*server_conn, error::panic);
-//         }        
-//     };
-
-//     Client client(client_conn);
-//     client.start(error::panic);
-//     print "client started";
-
-//     ExampleService::SumResponse resp;
-//     print "making request...";
-//     client.call(ExampleService::Sum, ExampleService::SumRequest{.left = 10, .right = 20}, resp, error::panic);
-//     if (resp.answer != 30) {
-//         t.errorf("client.call got %v; want 30", resp.answer);
-//     }
-
-//     print "got call result", resp.answer;
-
-//     client.close(error::panic);
-//     stop.store(true);
-// }
-
 struct Summer : SumService {
     RPCServer *server = nil;
 
@@ -108,12 +73,23 @@ struct Summer : SumService {
     }
 } ;
 
-void test_e2e(testing::T &t) {
-    
-    // ExampleService service;
-    // Server server(service);
+struct SerialConn : serial::Conn {
+    io::ReaderWriter &fwd;
+    SerialConn(io::ReaderWriter &fwd) : fwd(fwd) {}
 
-    auto [client_conn, server_conn] = make_pipe();
+    io::ReadResult direct_read(buf bytes, error err) override {
+        return fwd.read(bytes, err);
+    }
+
+    size direct_write(str data, error err) override {
+        return fwd.write(data, err);
+    }
+} ;
+
+void test_e2e(testing::T &t) {
+    auto [client_conn, server_side] = make_pipe();
+    SerialConn server_conn(*server_side);
+
     Summer summer;
     RPCServer server(summer);
 
@@ -125,7 +101,7 @@ void test_e2e(testing::T &t) {
                 print "server is done";
                 return;
             }
-            server.accept(*server_conn, error::panic);
+            server.accept(server_conn, error::panic);
         }
     };
 
@@ -153,6 +129,7 @@ void test_e2e(testing::T &t) {
     summer.do_event(1);
     summer.do_event(2);
     summer.do_event(3);
+    // END EVENT
 
     stop.store(true);
     client.close(error::panic);
@@ -160,10 +137,4 @@ void test_e2e(testing::T &t) {
     if (received_events != std::vector<int>{1, 2, 3}) {
         t.errorf("received events got %v; want [1, 2, 3]", received_events);
     }
-}
-
-int xmain(int argc, char *argv[]) {
-    testing::T t;
-    test_e2e(t);
-    return 0;
 }

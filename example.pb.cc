@@ -2,18 +2,17 @@
 // source: example.proto
 
 #include "example.pb.h"
-#include "lib/print.h"
 #include "serialrpc/encoding.h"
 
 using namespace lib;
 
 namespace serialrpc {
-    void SumRequest::marshal(SumRequest const &req, lib::io::Writer &out, lib::error err, int nesting) {
-        serialrpc::marshal_field(out, req.LeftFieldNumber, req.left, err, nesting-1);
+    void SumRequest::marshal(SumRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.LeftFieldNumber, req.left, err, nesting-1, stack);
         if (err) {
             return;
         }
-        serialrpc::marshal_field(out, req.RightFieldNumber, req.right, err, nesting-1);
+        serialrpc::marshal_field(out, req.RightFieldNumber, req.right, err, nesting-1, stack);
         if (err) {
             return;
         }
@@ -24,7 +23,6 @@ namespace serialrpc {
 
         for (;;) {
             serialrpc::Tag tag = serialrpc::read_tag(in, err);
-            print "got tag", tag.field_num, (int) tag.field_num, bool(err);
             if (err) {
                 return msg;
             }
@@ -58,8 +56,8 @@ namespace serialrpc {
             && right == other.right;
     }
 
-    void SumResponse::marshal(SumResponse const &req, lib::io::Writer &out, lib::error err, int nesting) {
-        serialrpc::marshal_field(out, req.AnswerFieldNumber, req.answer, err, nesting-1);
+    void SumResponse::marshal(SumResponse const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.AnswerFieldNumber, req.answer, err, nesting-1, stack);
         if (err) {
             return;
         }
@@ -98,8 +96,8 @@ namespace serialrpc {
         return answer == other.answer;
     }
 
-    void SumEventsRequest::marshal(SumEventsRequest const &req, lib::io::Writer &out, lib::error err, int nesting) {
-        serialrpc::marshal_field(out, req.VFieldNumber, req.v, err, nesting-1);
+    void SumEventsRequest::marshal(SumEventsRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.VFieldNumber, req.v, err, nesting-1, stack);
         if (err) {
             return;
         }
@@ -138,8 +136,8 @@ namespace serialrpc {
         return v == other.v;
     }
 
-    void SumEvent::marshal(SumEvent const &req, lib::io::Writer &out, lib::error err, int nesting) {
-        serialrpc::marshal_field(out, req.EventFieldNumber, req.event, err, nesting-1);
+    void SumEvent::marshal(SumEvent const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.EventFieldNumber, req.event, err, nesting-1, stack);
         if (err) {
             return;
         }
@@ -178,8 +176,8 @@ namespace serialrpc {
         return event == other.event;
     }
 
-    void Message2::marshal(Message2 const &req, lib::io::Writer &out, lib::error err, int nesting) {
-        serialrpc::marshal_field(out, req.SumRequestFieldNumber, req.sum_request, err, nesting-1);
+    void Message2::marshal(Message2 const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.SumRequestFieldNumber, req.sum_request, err, nesting-1, stack);
         if (err) {
             return;
         }

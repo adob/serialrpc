@@ -25,17 +25,26 @@ namespace serialrpc {
         void start(error err);
         void close(error err);
 
-    protected:
+        ~ClientBase();
+
+      protected:
+
+        struct Waiter {
+            std::atomic<int> state = 0;
+
+            void notify();
+            void wait();
+        } ;
+
         struct CallData {
             CallData *next = nil;
-            std::atomic<ServerMessageType> type = {};
-            std::atomic<bool> response_received = false;
-            std::atomic<bool> caller_done = false;
+            
+            Waiter response_received;
 
-            ~CallData() {
-                caller_done.store(true);
-                caller_done.notify_one();
-            }
+            ClientBase *client = nil;
+            void *resp = nil;
+            error *err = nil;
+            void (*unmarshal)(CallData*, io::Reader &in) = nil;
         } ;
 
         enum State {
@@ -63,115 +72,107 @@ namespace serialrpc {
         template <typename Req, typename Resp>
         Resp call(uint32 rpc_id, Req const &req, error err) {
             ClientBase &c = *this;
-            CallData call_data;
+            Resp resp;
+            CallData call_data = {
+                .client    = this,
+                .resp      = &resp,
+                .err       = &err,
+                .unmarshal = [](CallData *cd, io::Reader &in) {
+                    Resp *resp = (Resp*) cd->resp;
+                    *resp = unmarshal<Resp>(in, *cd->err);
+                },
+            };
+
             {
-                sync::Lock lock(call_mtx);
-                start_request(rpc_id, &call_data, err);
+                sync::Lock lock(c.call_mtx);
+                c.start_request(rpc_id, &call_data, err);
                 if (err) {
-                    fail();
+                    fail(lock);
                     return {};
                 }
                 fmt::printf("client: start request done\n");
-                marshal_fields(*conn, req, err);
+                marshal(*conn, req, err);
                 fmt::printf("client: marshal request done\n");
                 if (err) {
-                    fail();
+                    fail(lock);
                     return {};
                 }
                 finish_request(err);    
                 if (err) {
-                    fail();
+                    fail(lock);
                     return {};
                 }
             }
             
             fmt::printf("sent request; now waiting for data\n");
-            call_data.response_received.wait(false);
-
-            ServerMessageType type = call_data.type.load();
-            if (type != ServerMessageType::Reply) {
-                handle_error_response(err);
-                return {};
-            }
-            
-            Resp resp = unmarshal<Resp>(*c.conn, err);
-            if (err) {
-                fail();
-                return {};
-            }
+            call_data.response_received.wait();
             return resp;
         }
 
         template <typename T>
         void subscribe(uint32 event_id, T const &req, error err) {
             ClientBase &c = *this;
-            CallData call_data;
+            CallData call_data = {
+                .client    = this,
+                .err       = &err,
+            };
             {
                 sync::Lock lock(c.call_mtx);
                 c.start_request(event_id, &call_data, err);
                 if (err) {
-                    c.fail();
+                    c.fail(lock);
                     return;
                 }
                 c.conn->write_byte(1, err);
                 if (err) {
-                    c.fail();
+                    c.fail(lock);
                     return;;
                 }
-                marshal_fields(*c.conn, req, err);
+                marshal(*c.conn, req, err);
                 fmt::printf("client: marshal subscribe done\n");
                 if (err) {
-                    c.fail();
+                    c.fail(lock);
                     return;
                 }
                 finish_request(err);    
                 if (err) {
-                    c.fail();
+                    c.fail(lock);
                     return;
                 }
             }
             
             fmt::printf("sent request; now waiting for data\n");
-            call_data.response_received.wait(false);
-
-            ServerMessageType type = call_data.type.load();
-            if (type != ServerMessageType::Reply) {
-                c.handle_error_response(err);
-                return;
-            }
+            call_data.response_received.wait();
         }
 
         void unsubscribe(uint32 event_id, error err) {
             ClientBase &c = *this;
-            CallData call_data;
+            CallData call_data = {
+                .client    = this,
+                .err       = &err,
+            };
             {
                 sync::Lock lock(c.call_mtx);
                 c.start_request(event_id, &call_data, err);
                 if (err) {
-                    c.fail();
+                    c.fail(lock);
                     return;
                 }
                 fmt::printf("client: start request done\n"); 
                 c.conn->write_byte(0, err);
                 if (err) {
-                    c.fail();
+                    c.fail(lock);
                     return;;
                 }
                 c.finish_request(err);    
                 if (err) {
-                    c.fail();
+                    c.fail(lock);
                     return;
                 }
             }
             
             fmt::printf("sent request; now waiting for data\n");
-            call_data.response_received.wait(false);
-
-            ServerMessageType type = call_data.type.load();
-            if (type != ServerMessageType::Reply) {
-                handle_error_response(err);
-                return;
-            }
+            call_data.response_received.wait();
         }
 
         void start_unlocked(error err);
@@ -180,8 +181,8 @@ namespace serialrpc {
         void handle_error_response(error err);
         void input();
         void client_hello(error err);
-        void fail();
-        void handle_reply(ServerMessageType type);
+        void fail(sync::Lock const&);
+        void handle_reply(ServerMessageType type, error);
     } ;
 
     struct Call {

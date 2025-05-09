@@ -5,6 +5,7 @@
 #include "rpc.h"
 #include "internal.h"
 #include "lib/print.h"
+#include "serial/serial_listener.h"
 
 using namespace serialrpc;
 
@@ -143,7 +144,7 @@ void CallCtx::reply(str data) {
     handled = true;
     conn.write_byte((byte) ServerMessageType::Reply, err);
 
-    varint::write_uint32(conn, len(data), err);
+    varint::write_unsigned(conn, len(data), err);
     conn.write(data, err);
     conn.flush(err);
 }
@@ -166,16 +167,12 @@ void CallCtx::send_error(str data) {
     handled = true;
     conn.write_byte((byte) ServerMessageType::ErrorReply, err);
 
-    varint::write_uint32(conn, len(data), err);
+    varint::write_unsigned(conn, len(data), err);
     conn.write(data, err);
     conn.flush(err);
 }
 
 void ServerBase::finish_msg(io::ReaderWriter &conn, error err) {
-    conn.write_byte(byte(Tag::End), err);
-    if (err) {
-        return;
-    }
     conn.flush(err);
 }
 
@@ -260,7 +257,7 @@ void ServerBase::start_event(uint32 event_id, error err) {
     varint::write_uint32(*s.conn, event_id, err);
 }
 
-void ServerBase::accept(io::ReaderWriter &conn, error err) {
+void ServerBase::accept(serial::Conn &conn, error err) {
     ServerBase &s = *this;
 
     byte b = conn.read_byte(err);
@@ -275,7 +272,7 @@ void ServerBase::accept(io::ReaderWriter &conn, error err) {
     }
 
     {
-        sync::Lock lock(s.send_mtx);
+        sync::Lock lock(conn.write_mtx);
         s.conn = &conn;
         conn.write_byte(byte(ServerHello), err);
         conn.flush(err);
@@ -284,7 +281,7 @@ void ServerBase::accept(io::ReaderWriter &conn, error err) {
     for (;;) {
         uint32 rpc_id = varint::read_uint32(conn, err);
         if (err) {
-            stop_accept();
+            s.stop_accept();
             return;
         }
 
@@ -305,12 +302,28 @@ void ServerBase::accept(io::ReaderWriter &conn, error err) {
     }
 }
 
+void ServerBase::serve(serial::Listener &listener, error err) {
+    ServerBase &s = *this;
+
+    for (;;) {
+        serial::Conn &conn = listener.accept(err);
+        if (err) {
+            return;
+        }
+
+        s.accept(conn, [](Error &e){
+            fmt::fprintf(os::stderr, "serialrpc server error: %v", e);
+        });
+    }
+}
+
+
 void ServerBase::stop_accept() {
     ServerBase &s = *this;
     
     s.unsubscribe_all();
 
-    sync::Lock lock(s.send_mtx);
+    sync::Lock lock(s.conn->write_mtx);
     s.conn = nil;
 }
 

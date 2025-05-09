@@ -50,7 +50,28 @@ void test_encode_decode_empty(T &t) {
     SumRequest out = unmarshal<SumRequest>(buffer, error::panic);
 
     if (out.left != 0 || out.right != 0) {
-        t.errorf("unmarshal() got left %v, right %v; want left 41, right 42", out.left, out.right);
+        t.errorf("unmarshal() got left %v, right %v; want left 0, right 0", out.left, out.right);
+    }
+
+    if (len(data) != 1  ) {
+        t.errorf("len(data) = %v; want 1; data = 0x% x", len(data), data);
+    }
+}
+
+void test_encode_decode_empty_submessage(T &t) {
+    SumRequest sum = { .left = 0, .right = 0 };
+    Message2 msg2 = {.sum_request = sum};
+    
+    io::Buffer buffer;
+    marshal(buffer, msg2, error::panic);
+
+    print "buffer %v % x" % buffer.length(), buffer.str();
+    String data = buffer.str();
+
+    SumRequest out = unmarshal<SumRequest>(buffer, error::panic);
+
+    if (out.left != 0 || out.right != 0) {
+        t.errorf("unmarshal() got left %v, right %v; want left 0, right 0", out.left, out.right);
     }
 
     if (len(data) != 1  ) {
