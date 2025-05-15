@@ -6,7 +6,7 @@
 
 using namespace lib;
 
-namespace serialrpc {
+namespace examplepb {
     void SumRequest::marshal(SumRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
         serialrpc::marshal_field(out, req.LeftFieldNumber, req.left, err, nesting-1, stack);
         if (err) {
@@ -27,7 +27,7 @@ namespace serialrpc {
                 return msg;
             }
 
-            if (tag.type == Tag::End) {
+            if (tag.type == serialrpc::Tag::End) {
                 return msg;
             }
 
@@ -72,7 +72,7 @@ namespace serialrpc {
                 return msg;
             }
 
-            if (tag.type == Tag::End) {
+            if (tag.type == serialrpc::Tag::End) {
                 return msg;
             }
 
@@ -112,7 +112,7 @@ namespace serialrpc {
                 return msg;
             }
 
-            if (tag.type == Tag::End) {
+            if (tag.type == serialrpc::Tag::End) {
                 return msg;
             }
 
@@ -152,7 +152,7 @@ namespace serialrpc {
                 return msg;
             }
 
-            if (tag.type == Tag::End) {
+            if (tag.type == serialrpc::Tag::End) {
                 return msg;
             }
 
@@ -181,6 +181,10 @@ namespace serialrpc {
         if (err) {
             return;
         }
+        serialrpc::marshal_field(out, req.DataFieldNumber, req.data, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
     }
 
     Message2 Message2::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
@@ -192,13 +196,17 @@ namespace serialrpc {
                 return msg;
             }
 
-            if (tag.type == Tag::End) {
+            if (tag.type == serialrpc::Tag::End) {
                 return msg;
             }
 
             switch (tag.field_num) {
             case SumRequestFieldNumber:
-                msg.sum_request = serialrpc::unmarshal<serialrpc::SumRequest>(in, err, nesting-1);
+                msg.sum_request = serialrpc::unmarshal<examplepb::SumRequest>(in, err, nesting-1);
+                break;
+
+            case DataFieldNumber:
+                msg.data = serialrpc::unmarshal<lib::InlineString<8>>(in, err, nesting-1);
                 break;
 
             default:
@@ -213,12 +221,64 @@ namespace serialrpc {
     }
 
     bool Message2::operator==(const Message2& other) const {
-        return sum_request == other.sum_request;
+        return sum_request == other.sum_request
+            && data == other.data;
+    }
+
+    void CANFrame::marshal(CANFrame const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.FrameIdFieldNumber, req.frame_id, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.DataFieldNumber, req.data, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    CANFrame CANFrame::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        CANFrame msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            case FrameIdFieldNumber:
+                msg.frame_id = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
+                break;
+
+            case DataFieldNumber:
+                msg.data = serialrpc::unmarshal<lib::InlineString<8>>(in, err, nesting-1);
+                break;
+
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool CANFrame::operator==(const CANFrame& other) const {
+        return frame_id == other.frame_id
+            && data == other.data;
     }
 
 
-    RPCServer::RPCServer(SumService &sum_service)
+
+    RPCServer::RPCServer(SumService &sum_service, CANService &can_service)
         : sum_service(sum_service)
+        , can_service(can_service)
     {}
 
     void RPCServer::send_SumService_sum_events(SumEvent const &msg) {
@@ -236,7 +296,7 @@ namespace serialrpc {
             if (err) {
                 return;
             }
-            send_reply(conn, resp, err);
+            send_reply_msg(conn, resp, err);
             if (err) {
                 return;
             }
@@ -262,6 +322,21 @@ namespace serialrpc {
             }
             break;
         }
+        case 3: {
+            CANFrame msg = serialrpc::unmarshal<CANFrame>(conn, err);
+            if (err) {
+                return;
+            }
+            can_service.send(msg, RPCServer::ServerErrorHandler(conn, err));
+            if (err) {
+                return;
+            }
+            send_reply_void(conn, err);
+            if (err) {
+                return;
+            }
+            break;
+        }
         default:
             send_code(conn, serialrpc::Unknown, err);
         } // switch
@@ -274,6 +349,7 @@ namespace serialrpc {
     RPCClient::RPCClient(std::shared_ptr<lib::io::ReaderWriter> const &conn)
         : ClientBase(conn)
         , sum_service(*this)
+        , can_service(*this)
     {}
 
     RPCClient::SumServiceStub::SumServiceStub(RPCClient &client)
@@ -304,6 +380,14 @@ namespace serialrpc {
         if (this->sum_events_cb) {
             this->sum_events_cb(msg);
         }
+    }
+
+    RPCClient::CANServiceStub::CANServiceStub(RPCClient &client)
+        : client(client)
+    {}
+
+    void RPCClient::CANServiceStub::send(CANFrame const &req, lib::error err) {
+        this->client.call_void<CANFrame const&>(3, req, err);
     }
 
     void RPCClient::handle_event(lib::uint32 event_id, lib::error err) {

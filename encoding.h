@@ -1,10 +1,12 @@
 #pragma once
 
 #include "lib/base.h"
+#include "lib/inline_string.h"
 #include "lib/io.h"
 #include "lib/io/io.h"
 #include "lib/varint.h"
 #include "lib/varint/varint.h"
+#include <concepts>
 
 namespace serialrpc {
     using namespace lib;
@@ -102,6 +104,13 @@ namespace serialrpc {
             elems[size++] = e;
         }
 
+        void pop() {
+            if (size == 0) {
+                panic("empty stack");
+            }
+            size--;
+        }
+
         void clear() {
             size = 0;
         }
@@ -118,6 +127,12 @@ namespace serialrpc {
     void write_tag(io::Writer &out, int32 field_number, Tag::Type type, error err);
 
     template <typename T>
+    concept Marshallable = requires(T const& t, io::Writer &out, io::Reader &in, error err, int nesting, Stack &stack) {
+        { T::marshal(t, out, err, nesting, stack) };
+        { T::unmarshal(in, err, nesting) };
+    };
+
+    template <Marshallable T>
     void marshal_field(io::Writer &out, int32 field_number, T const &t, error err, int nesting, Stack &stack) {
         stack.push(field_number);
         
@@ -128,10 +143,15 @@ namespace serialrpc {
 
         if (stack.size == 0) {
             out.write_byte(Tag::End, err);
+        } else {
+            stack.pop();
         }
     }
     
     void marshal_field(io::Writer &out, int32 field_number, int32 val, error err, int nesting, Stack &stack);
+    void marshal_field(io::Writer &out, int32 field_number, uint32 val, error err, int nesting, Stack &stack);
+
+    void marshal_field(io::Writer &out, int32 field_numer, str s, error err, int nesting, Stack &stack);
 
     template <typename T>
     void marshal(io::Writer &out, T const& t, error err) {
@@ -164,7 +184,7 @@ namespace serialrpc {
     // template <>
     // uint32 unmarshal<uint32>(str *data, error err, int /*nesting*/);
 
-    template <typename T>
+    template <Marshallable T>
     T unmarshal(io::Reader &in, error err, int nesting = 128) {
         if (nesting < 0) {
             err("excessive nesting");
@@ -173,11 +193,40 @@ namespace serialrpc {
         return T::unmarshal(in, err, nesting);
     }
 
+    size unmarshal_bytes(io::Reader &in, buf bytes, error err);
+
+    template<typename T>
+    struct is_inline_string : std::false_type {};
+
+    template<size N>
+    struct is_inline_string<InlineString<N>> : std::true_type {};
+
+    template<typename T>
+    concept InlineString = is_inline_string<T>::value;
+
+    template <InlineString T>
+    T unmarshal(io::Reader &in, error err, int /*nesting*/ = 128) {
+        T t;
+        t.length = unmarshal_bytes(in, t.data(), err);
+        return t;
+    }
+
+    template <typename T>
+    T unmarshal(io::Reader &in, error err, int /*nesting*/ = 128) {
+        static_assert(false);
+    }
+
     template <>
     int32 unmarshal<int32>(io::Reader &in, error err, int /*nesting*/);
 
     template <>
     uint32 unmarshal<uint32>(io::Reader &in, error err, int /*nesting*/);
+
+    // template <size N>
+    // InlineString<N> unmarshal(io::Reader &in, error err, int /*nesting*/) {
+    //     panic("!");
+    //     return {};
+    // }
 
     // void skip(str *data, Tag::Type type, error err, int nesting = 128);
     void skip(io::Reader &in, Tag::Type type, error err, int nesting = 128);

@@ -23,6 +23,20 @@ void test_encode_decode(T &t) {
     }
 }
 
+void test_encode_decode_string(T &t) {
+    Message2 msg = { .data = "hello" };
+    
+    io::Buffer buffer;
+    marshal(buffer, msg, error::panic);
+    print "buffer %v % x" % buffer.length(), buffer.str();
+
+    msg = unmarshal<Message2>(buffer, error::panic);
+
+    if (msg.data != "hello") {
+        t.errorf("unmarshal() got %q, want \"hello\"", str(msg.data));
+    }
+}
+
 void test_encode_decode2(T &t) {
     SumRequest sum = { .left = 41, .right = 42 };
     Message2 msg2 = {.sum_request = sum};
@@ -60,7 +74,7 @@ void test_encode_decode_empty(T &t) {
 
 void test_encode_decode_empty_submessage(T &t) {
     SumRequest sum = { .left = 0, .right = 0 };
-    Message2 msg2 = {.sum_request = sum};
+    Message2 msg2 = {.sum_request = sum, .data = ""};
     
     io::Buffer buffer;
     marshal(buffer, msg2, error::panic);

@@ -1,20 +1,22 @@
 #pragma once
-#include "lib/base.h"
+
+#include "lib/error.h"
 
 namespace serialrpc {
     using namespace lib;
     
     enum ServerMessageType : byte {
-        Reply         = 1,
-        Event         = 2,
-        ErrorReply    = 3,
-        Unknown       = 4,
-        TooBig        = 5,
-        BadMessage    = 6,
-        FatalError    = 7,
+        Reply         = 0xF0,
+        ErrorReply    = 0xF1,
+        Event         = 0xF2,
+        Log           = 0xF3,
+        Unknown       = 0xF4,
+        TooBig        = 0xF5,
+        BadMessage    = 0xF6,
+        FatalError    = 0xF7,
         
-        ServerHello   = 8,
-        ServerGoodbye = 9,
+        ServerHello   = 0xF9,
+        ServerGoodbye = 0xFA,
     };
     
     enum ClientMessageType : byte {
@@ -23,7 +25,7 @@ namespace serialrpc {
         ClientGoodbye = 0xF2,
     };
     
-    struct ErrReply : ErrorBase<ErrReply, "serialrpc error reply"> {};
+    struct ErrReply : lib::ErrorBase<ErrReply, "serialrpc error reply"> {};
     struct ErrUnknownMethod  : ErrorBase<ErrUnknownMethod, "serialrpc unknown method"> {};
     struct ErrRequestTooBig  : ErrorBase<ErrRequestTooBig, "serialrpc request too big"> {};
     struct ErrResponseTooBig : ErrorBase<ErrResponseTooBig, "serialrpc request too big"> {};

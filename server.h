@@ -1,9 +1,7 @@
 #pragma once
 
-#include <atomic>
 
 #include "lib/sync/lock.h"
-#include "lib/sync/mutex.h"
 #include "rpc.h"
 #include "encoding.h"
 
@@ -52,7 +50,7 @@ namespace serialrpc {
         void handle_goodbye(error err);
 
         template <typename T>
-        void send_reply(io::ReaderWriter &conn, T const &msg, error err) {
+        void send_reply_msg(io::ReaderWriter &conn, T const &msg, error err) {
             ServerBase &s = *this;
             sync::Lock lock(s.conn->write_mtx);
 
@@ -71,6 +69,8 @@ namespace serialrpc {
                 return;
             }
         }
+
+        void send_reply_void(io::ReaderWriter &conn, error err);
 
         template <typename T>
         void send_event(uint32 event_id, T const &msg) {

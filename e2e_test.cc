@@ -44,15 +44,15 @@ PipePair make_pipe() {
     return p;
 }
 
-struct Summer : SumService {
-    RPCServer *server = nil;
+struct Summer : examplepb::SumService {
+    examplepb::RPCServer *server = nil;
 
-    SumResponse sum(SumRequest const &req, error) override {
+    examplepb::SumResponse sum(examplepb::SumRequest const &req, error) override {
         print "sum service got", req.left, req.right;
         return {.answer = req.left + req.right};
     }
 
-    void subscribe_sum_events(RPCServer &server, SumEventsRequest const &req) override {
+    void subscribe_sum_events(examplepb::RPCServer &server, examplepb::SumEventsRequest const &req) override {
         print "SERVER GOT SUBSCRIBE";
         if (req.v != 42) {
             panic("bad req value");
@@ -70,6 +70,12 @@ struct Summer : SumService {
 
     void do_event(int i) {
         server->send_SumService_sum_events({.event = i });
+    }
+} ;
+
+struct CANService: examplepb::CANService {
+    void send(examplepb::CANFrame const &req, lib::error) override {
+        print "CANService::SEND id %v" % req.frame_id;
     }
 } ;
 
@@ -91,7 +97,8 @@ void test_e2e(testing::T &t) {
     SerialConn server_conn(*server_side);
 
     Summer summer;
-    RPCServer server(summer);
+    CANService can;
+    examplepb::RPCServer server(summer, can);
 
     sync::atomic<bool> stop = false;
 
@@ -105,13 +112,13 @@ void test_e2e(testing::T &t) {
         }
     };
 
-    RPCClient client(client_conn);
+    examplepb::RPCClient client(client_conn);
 
     client.start(error::panic);
     print "client started";
 
     print "making request...";
-    SumResponse resp = client.sum_service.sum(SumRequest{.left = 10, .right = 20}, error::panic);;
+    examplepb::SumResponse resp = client.sum_service.sum(examplepb::SumRequest{.left = 10, .right = 20}, error::panic);;
     
     if (resp.answer != 30) {
         t.errorf("client.call got %v; want 30", resp.answer);
@@ -121,7 +128,7 @@ void test_e2e(testing::T &t) {
 
     print "EVENTS BEGIN";
     std::vector<int> received_events;
-    client.sum_service.subscribe_sum_events({ .v = 42 }, [&](SumEvent const &event) {
+    client.sum_service.subscribe_sum_events({ .v = 42 }, [&](examplepb::SumEvent const &event) {
         print "GOT EVENT", event.event;
         received_events.push_back(event.event);
     }, error::panic);
@@ -131,10 +138,13 @@ void test_e2e(testing::T &t) {
     summer.do_event(3);
     // END EVENT
 
+    client.can_service.send({.frame_id = 123, .data = "hello"}, error::panic);
+
     stop.store(true);
     client.close(error::panic);
 
     if (received_events != std::vector<int>{1, 2, 3}) {
         t.errorf("received events got %v; want [1, 2, 3]", received_events);
     }
+
 }

@@ -7,6 +7,13 @@
 #include "lib/print.h"
 #include "serial/serial_listener.h"
 
+#ifdef ESP_PLATFORM
+    #include "../../m5stack/src/display.h"
+    #define DISPLAY(...) display::println(__VA_ARGS__)
+#else
+    #define DISPLAY(...)
+#endif
+
 using namespace serialrpc;
 
 static void discard_line(io::ReaderWriter &conn, error err) {
@@ -204,6 +211,8 @@ ServerBase::ServerErrorHandler::ServerErrorHandler(io::ReaderWriter &conn, error
         : conn(conn), err(err) {}
 
 void ServerBase::ServerErrorHandler::report(Error &rpc_error) {
+    fmt::fprintf(os::stderr, "RPC error: %v\n", rpc_error);
+
     conn.write_byte(byte(ServerMessageType::ErrorReply), err);
     if (err) {
         return;
@@ -285,12 +294,9 @@ void ServerBase::accept(serial::Conn &conn, error err) {
             return;
         }
 
-        print "server got rpc_id", rpc_id;
 
         if (rpc_id == 0) {
-            print "server: sending goodbye...";
             s.handle_goodbye(err);
-            print "server: sent goodbye, returning";
             return;
         }
 
@@ -312,6 +318,7 @@ void ServerBase::serve(serial::Listener &listener, error err) {
         }
 
         s.accept(conn, [](Error &e){
+            // ::printf("ERROR HANDLER server.cc:315\n");
             fmt::fprintf(os::stderr, "serialrpc server error: %v", e);
         });
     }
@@ -332,4 +339,20 @@ void ServerBase::fail() {
     
     s.unsubscribe_all();
     s.conn = nil;
+}
+void serialrpc::ServerBase::send_reply_void(io::ReaderWriter &conn, error err) {
+    ServerBase &s = *this;
+    sync::Lock lock(s.conn->write_mtx);
+
+    start_reply(conn, err);
+    if (err) {
+        s.fail();
+        return;
+    }
+
+    finish_msg(*s.conn, err);
+    if (err) {
+        s.fail();
+        return;
+    }
 }

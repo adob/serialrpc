@@ -518,6 +518,13 @@ void ClientBase::input() {
             }
             continue;
         }
+
+        case ServerMessageType::Log:
+            handle_log(err);
+            if (err) {
+                return;
+            }
+            continue;
             
         case ServerMessageType::FatalError:
             err(ErrFatal());
@@ -536,8 +543,28 @@ void ClientBase::input() {
             continue;
         }
         
-        return err("serialrpc got unexpected byte %q", (char) type);
+        return err("serialrpc got unexpected byte 0x%2X", (int) type);
     }    
+}
+
+void ClientBase::handle_log(error err) {
+    ClientBase &c = *this;
+
+    uint32 nbytes = varint::read_uint32(*c.conn, err);
+    if (err) {
+        return;
+    }
+
+    os::stdout.write("serialrpc log: ", error::ignore);
+    
+    for (uint i = 0; i < nbytes; i++) {
+        byte b = conn->read_byte(err);
+        if (err) {
+            return;
+        }
+
+        os::stdout.write_byte(b, error::ignore);
+    }
 }
 
 void ClientBase::handle_reply(ServerMessageType type, error err) {
@@ -583,7 +610,16 @@ again:
 
     if (is_printable(b)) {
         print_line(b, *conn, err);
+        if (err) {
+            return;
+        }
         goto again;
+    } else if (b == byte(ServerMessageType::Log)) {
+        handle_log(err);
+        if (err) {
+            return;
+        }
+        goto again;        
     }
 
     if (b != byte(ServerHello)) {

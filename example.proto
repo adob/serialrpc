@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package serialrpc;
+package example;
 
 import "EchoAttributes.proto";
 
@@ -23,6 +23,7 @@ message SumEvent {
 
 message Message2 {
     SumRequest sum_request = 1;
+    bytes data = 2 [(bytes_size) = 8];
 }
 
 service SumService {
@@ -32,3 +33,15 @@ service SumService {
 
      rpc sum_events(SumEventsRequest) returns (stream SumEvent) { option(method_id) = 2; }
 }
+
+message CANFrame {
+    uint32 frame_id = 1;
+    bytes  data = 2 [(bytes_size) = 8];
+}
+
+service CANService {
+    option (service_id) = 1;
+
+    rpc send(CANFrame) returns (Nothing) { option (method_id) = 1; }
+}
+

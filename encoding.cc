@@ -186,9 +186,47 @@ uint32 serialrpc::unmarshal<uint32>(io::Reader &in, error err, int /*nesting*/) 
     return varint::read_uint32(in, err);
 }
 
+static void write_tags(io::Writer &out, int32 field_number, Tag::Type tag, Stack &stack, error err) {
+    for (uint32 elem : stack) {
+        write_tag(out, elem, Tag::Start, err);
+        if (err) {
+            return;
+        }
+    }
+    stack.clear();
+
+    write_tag(out, field_number, tag, err);
+}
+
 void serialrpc::marshal_field(io::Writer &out, int32 field_number, int32 val, error err, int /*nesting*/, Stack &stack) {
-    // print "marshal_field %v %v; len %v; data % x" % field_number, val, len(((io::Buffer&) out).str()), ((io::Buffer&) out).str();
     if (val == 0) {
+        return;
+    }
+
+    write_tags(out, field_number, Tag::VarInt, stack, err);
+    if (err) {
+        return;
+    }
+
+    varint::write_sint32(out, val, err);
+}
+
+
+void serialrpc::marshal_field(io::Writer &out, int32 field_number, uint32 val, error err, int /*nesting*/, Stack &stack) {
+    if (val == 0) {
+        return;
+    }
+    
+    write_tag(out, field_number, Tag::VarInt, err);
+    if (err) {
+        return;
+    }
+    
+    varint::write_uint32(out, val, err);
+}
+
+void serialrpc::marshal_field(io::Writer &out, int32 field_numer, str s, error err, int nesting, Stack &stack) {
+    if (len(s) == 0) {
         return;
     }
 
@@ -199,19 +237,21 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_number, int32 val, er
         }
     }
     stack.clear();
-    // print "marshal_field after stack %v %v; len %v; data % x" % field_number, val, len(((io::Buffer&) out).str()), ((io::Buffer&) out).str();
 
-    write_tag(out, field_number, Tag::VarInt, err);
+    write_tag(out, field_numer, Tag::Len, err);
     if (err) {
         return;
     }
 
-    // print "marshal_field after tag %v %v; len %v; data % x" % field_number, val, len(((io::Buffer&) out).str()), ((io::Buffer&) out).str();
-    
-    varint::write_sint32(out, val, err);
+    varint::write_unsigned(out, len(s),err);
+    if (err) {
+        return;
+    }
 
-    // print "marshal_field after varin %v %v; len %v; data % x" % field_number, val, len(((io::Buffer&) out).str()), ((io::Buffer&) out).str();
+    out.write(s, err);
 }
+
+
 void serialrpc::write_chunked(io::Writer &out, io::WriterTo const &msg,
                               error err) {
   struct Writer : io::Writer {
@@ -220,16 +260,12 @@ void serialrpc::write_chunked(io::Writer &out, io::WriterTo const &msg,
     Writer(io::Writer &out) : out(out) {}
 
     size direct_write(str data, error err) override {
-      varint::write_uint32(out, uint32(len(data)), err);
-      if (err) {
-        return 0;
-      }
+        varint::write_uint32(out, uint32(len(data)), err);
+        if (err) {
+            return 0;
+        }
 
-      size n = out.write(data, err);
-      if (err) {
-        return n;
-      }
-      return n;
+        return out.write(data, err);
     }
   } writer(out);
 
@@ -245,6 +281,7 @@ lib::String serialrpc::read_chunked(io::Reader &in, error err) {
 
     for (;;) {
         uint32 n = varint::read_uint32(in, err);
+        // print "read_chunked", n;
         if (err) {
             return s;
         }
@@ -253,11 +290,26 @@ lib::String serialrpc::read_chunked(io::Reader &in, error err) {
         }
 
         buf b = s.expand(n);
-        in.read(b, err);
+        // print "buffer", len(b);
+        io::read_full(in, b, err);
         if (err) {
             return s;
         }   
     }
 
     return s;
+}
+
+size serialrpc::unmarshal_bytes(io::Reader &in, buf bytes, error err) {
+    size n = varint::read_unsigned<size>(in, err);
+    if (err) {
+        return n;
+    }
+
+    if (n > len(bytes)) {
+        err("data too big");
+    }
+
+    io::read_full(in, bytes[0, n], err);
+    return n;
 }

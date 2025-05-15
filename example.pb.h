@@ -4,14 +4,14 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include "lib/error.h"
+#include "lib/inline_string.h"
 #include "lib/io/io.h"
 #include "serialrpc/server.h"
 #include "serialrpc/client.h"
 
-namespace serialrpc {
+namespace examplepb {
     struct RPCServer;
 
     struct SumRequest {
@@ -73,9 +73,29 @@ namespace serialrpc {
 
         bool operator==(const Message2& other) const;
 
-        serialrpc::SumRequest sum_request = {};
+        examplepb::SumRequest sum_request = {};
+
+        lib::InlineString<8> data = {};
 
         static const uint32_t SumRequestFieldNumber = 1;
+
+        static const uint32_t DataFieldNumber = 2;
+    };
+
+    struct CANFrame {
+        static void marshal(CANFrame const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static CANFrame unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const CANFrame& other) const;
+
+        uint32_t frame_id = {};
+
+        lib::InlineString<8> data = {};
+
+        static const uint32_t FrameIdFieldNumber = 1;
+
+        static const uint32_t DataFieldNumber = 2;
     };
 
     struct SumService {
@@ -86,12 +106,18 @@ namespace serialrpc {
         virtual void unsubscribe_sum_events() = 0;
     };
 
+    struct CANService {
+        virtual void send(CANFrame const &req, lib::error err) = 0;
+    };
+
     struct RPCServer : serialrpc::ServerBase {
-        explicit RPCServer(SumService &sum_service);
+        explicit RPCServer(SumService &sum_service, CANService &can_service);
 
         void send_SumService_sum_events(SumEvent const &msg);
 
         SumService& sum_service;
+
+        CANService& can_service;
 
         void handle_request(lib::uint32 rpc_id, lib::io::ReaderWriter &conn, lib::error err) override;
 
@@ -118,6 +144,16 @@ namespace serialrpc {
 
             void handle_sum_events(SumEvent const &msg);
         } sum_service;
+
+        struct CANServiceStub {
+            RPCClient& client;
+
+            lib::sync::Mutex mtx;
+
+            explicit CANServiceStub(RPCClient &client);
+
+            void send(CANFrame const &req, lib::error err);
+        } can_service;
 
         void handle_event(lib::uint32 event_id, lib::error err) override;
     };

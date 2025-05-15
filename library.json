@@ -8,6 +8,6 @@
     "build": {
         "includeDir": "..",
         "srcDir": ".",
-        "srcFilter":  "+<**/*.cc> -<**/*_test.cc> -<**/*_unix.cc> -<test/**>"
+        "srcFilter":  "+<**/*.cc> -<**/*_test.cc> -<**/*_unix.cc> -<test/**> -<example_*>"
     }
 }
