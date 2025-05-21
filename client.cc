@@ -1,4 +1,5 @@
 #include "client.h"
+#include "lib/io/util.h"
 #include "lib/varint/varint.h"
 #include "rpc.h"
 #include "internal.h"
@@ -12,327 +13,22 @@ using namespace lib;
 using namespace serialrpc;
 
 static void print_line(byte b, io::ReaderWriter &conn, error err) {
-    os::stdout.write("serialrpc log: ", error::ignore);
-    
-    for (;;) {
-        os::stdout.write_byte(b, error::ignore);
+    String msg;
+    msg += b;
+    for (;;) {    
+        byte b = conn.read_byte(err);
+        if (err) {
+            return;
+        }
+
+        msg += b;
+
         if (b == '\n') {
-            return;
-        }
-    
-        b = conn.read_byte(err);
-        if (err) {
-            return;
-        }
-    }
-}
-
-Client::Client(std::shared_ptr<io::ReaderWriter> const& stream)
-        : iostream(stream) {
-}
-
-void Client::start(error err) {
-    if (this->state != Starting) {
-        err("serialrpc: already started");
-        return;
-    }
-    
-    this->input_worker = sync::go([&] { this->input(); });
-
-    sync::Lock lock(cond_mutex);
-    while (this->state == Starting) {
-        this->call_cond.wait(this->cond_mutex);
-    }
-
-    if (this->state == Failing) {
-        err(*this->err);
-        this->state = Failed;
-        this->call_cond.signal();
-    }
-}
-
-void Client::input() {
-    ErrorReporter err = [&](Error &e){
-        eprint "serialrpc error: %v" % e;
-        panic("!");
-
-        sync::Lock lock(cond_mutex);
-
-        this->err = &e;
-        this->state = Failing;
-        this->call_cond.signal();
-
-        while (this->state != Failed) {
-            this->call_cond.wait(cond_mutex);
-        }
-
-        eprint "serialrpc error handling done";
-
-        this-> err = nil;
-    };
-
-    this->client_hello(err);
-    if (err) {
-        return;
-    }
-
-    for (;;) {
-        byte b = iostream->read_byte(err);
-        ServerMessageType type = ServerMessageType(b);
-        if (err) {
-            return;
-        }        
-
-        switch (type) {
-        case ServerMessageType::Reply:
-            handle_reply(type, err);
-            continue;
-        
-        case ErrorReply:
-            handle_reply(type, err);
-            continue;
-        
-        case ServerMessageType::Unknown:
-            handle_error(type);
-            continue;
-            
-        case ServerMessageType::TooBig:
-            handle_error(type);
-            continue;
-            
-        case ServerMessageType::BadMessage:
-            handle_error(type);
-            continue;
-            
-        case ServerMessageType::FatalError:
-            err(ErrFatal());
-            return;
-            
-        case ServerMessageType::ServerGoodbye:
-            // print "received server goodbye";
-            return;
-        
-        case ServerMessageType::ServerHello:
-            return err("serialrpc got unexpected ServerHello");
-        }
-        
-        if (is_printable(b)) {
-            print_line(b, *iostream, err);
-            continue;
-        }
-        
-        return err("serialrpc got unexpected byte %q", (char) type);
-    }    
-}
-
-void Client::client_hello(error err) {
-    this->iostream->write_byte(byte(ClientHello), err);
-    if (err) {
-        return;
-    }
-    this->iostream->flush(err);
-    if (err) {
-        return;
-    }
-    
-again:
-    byte b = this->iostream->read_byte(err);
-    if (err) {
-        return;
-    }
-
-    if (is_printable(b)) {
-        print_line(b, *iostream, err);
-        goto again;
-    }
-
-    if (b != byte(ServerHello)) {
-        err("serialrpc received unexpected start byte: %#X; wanted ServerHello (%#X)", (int) b, (int) ServerHello);
-        return;
-    }
-    
-    print "serialrpc client: handshake completed";
-
-    sync::Lock lock(cond_mutex);
-    this->state = Running;
-    this->call_cond.signal();
-}
-
-void Client::handle_reply(ServerMessageType type, error err) {
-    pending_message_type = type;
-    str body = read_body(err);
-    if (err) {
-        return;
-    }
-    
-    sync::Lock call_lock(cond_mutex);
-    // if (!awaiting_reply) {
-    //     eprint "serialrpc: received unexpected reply; is_ok", is_ok;
-    //     return;
-    // }
-    
-    has_reply = true;
-    pending_reply  = body;
-    call_cond.signal();
-}
-
-
-void Client::handle_error(ServerMessageType type) {
-    pending_message_type = type;
-    sync::Lock call_lock(cond_mutex);
-    // if (!awaiting_reply) {
-    //     eprint "serialrpc: received unexpected error reply", errp.msg;
-    //     return;
-    // }
-    
-    has_reply = true;
-    pending_reply  = {};
-    call_cond.signal();
-}
-
-str Client::read_body(error err) {
-    size body_size = varint::read_uint32(*iostream, err);
-    if (err) {
-        return {};
-    }
-    
-    if (body_size > len(readbuf)) {
-        err(ErrResponseTooBig());
-        return {};
-    }
-    
-    buf body_data = readbuf[0, body_size];
-    io::read_full(*iostream, body_data, err);
-    if (err) {
-        return {};
-    }
-    
-    return body_data;
-}
-
-
-str Client::call(uint method_id, str data, error err) {
-    sync::Lock lock(call_mutex);
-    
-    if (this->state == Starting) {
-        start(err);
-        if (err) {
-            return {};
-        }
-    }
-    if (this->state != Running) {
-        err("serialrpc is not in running state");
-        return {};
-    }
-
-    byte start_byte = byte(0xF0) | byte(Request);
-    iostream->write_byte(start_byte, err);
-    if (err) {
-        return {};
-    }
-    
-    varint::write_uint32(*iostream, method_id, err);
-    if (err) {
-        return {};
-    }
-    
-    varint::write_uint32(*iostream, uint32(len(data)), err);
-    if (err) {
-        return {};
-    }
-    
-    iostream->write(data, err);
-    if (err) {
-        return {};
-    }
-    
-    iostream->flush(err);
-    if (err) {
-        return {};
-    }
-
-    print "wrote out request";
-    
-    sync::Lock cond_lock(cond_mutex);
-    for (;;) {
-        if (this->has_reply) {
             break;
         }
-        if (this->state == Failing) {
-            err(*this->err);
-
-            this->state = Failed;
-            call_cond.signal();
-            return {};
-        }
-
-        call_cond.wait(cond_mutex);
     }
-    this->has_reply = false;
-
-    switch (pending_message_type) {
-
-    case Reply:
-        break;
-
-    case ErrorReply:
-        err("serialrpc server error: %v", pending_reply);
-        return "";
-
-    case Unknown:
-        err(ErrUnknownMethod());
-        break;
-
-    case TooBig:
-        err(ErrResponseTooBig());
-        break;
-
-    case BadMessage:
-        err(ErrResponseTooBig());
-        break;
-
-    case FatalError:
-        err(ErrFatal());
-        return "";
-
-    case ServerGoodbye:
-        err("serialrpc server said goodbye");
-        return "";
-
-    case ServerHello:
-        err("serialrpc received unexpected ServerHello");
-        return "";
-    }
-    
-    return pending_reply;
+    fmt::printf("serialrpc raw log: %q\n", msg);
 }
-
-void Client::close(error err) {
-    //sync::Lock lock(call_mutex);
-    // print "Client::close() called";
-    
-    if (this->state != Running) {
-        return;
-    }
-    
-    byte cmd_byte = byte(0xF0) | byte (ClientGoodbye);
-    iostream->write_byte(cmd_byte, err);
-    iostream->flush(err);
-    if (err) {
-        return;
-    }
-
-    this->input_worker.join();
-    
-    // print "closing stream";
-    iostream->close(err);
-    this->state = Closed;
-}
-
-Client::~Client() {
-    close(error::ignore);
-}
-
 
 void ClientBase::start(error err) {
     print "starting client";
@@ -380,7 +76,7 @@ again:
 }
 
 void ClientBase::start_request(uint32 rpc_id, CallData *call_data, error err) {
-    print "start_request";
+    // print "start_request";
 
     ClientBase &c = *this;
     c.start_unlocked(err);
@@ -389,7 +85,7 @@ void ClientBase::start_request(uint32 rpc_id, CallData *call_data, error err) {
     }
 
     // write rpc_id
-    print "writing rpc_id", rpc_id;
+    // print "writing rpc_id", rpc_id;
     varint::write_uint32(*c.conn, rpc_id, err);
     if (err) {
         return;
@@ -494,6 +190,7 @@ void ClientBase::input() {
     for (;;) {
         byte b = conn->read_byte(err);
         ServerMessageType type = ServerMessageType(b);
+        // print "GOT MSG %2X" % (int) type;
         if (err) {
             return;
         }        
@@ -555,16 +252,29 @@ void ClientBase::handle_log(error err) {
         return;
     }
 
-    os::stdout.write("serialrpc log: ", error::ignore);
-    
-    for (uint i = 0; i < nbytes; i++) {
-        byte b = conn->read_byte(err);
-        if (err) {
-            return;
-        }
+    // print "log nbytes", nbytes;
 
-        os::stdout.write_byte(b, error::ignore);
+    // for (int i = 0; i < nbytes; i++) {
+    //     char ch = c.conn->read_byte(error::panic);
+    //     fmt::printf("read %d char %#U\n", i, ch);
+    // }
+
+    Buffer data(nbytes);
+    io::read_full(*c.conn, data, err);
+    if (err) {
+        return;
     }
+    
+    // fmt::printf("serialrpc log: %q\n", str(data));
+    if (len(data) == 0) {
+        return;
+    }
+    if (data[len(data) - 1] == '\n') {
+        fmt::printf("serialrpc log: %s", str(data));
+    } else {
+        fmt::printf("serialrpc log: %s\n", str(data));
+    }
+    
 }
 
 void ClientBase::handle_reply(ServerMessageType type, error err) {

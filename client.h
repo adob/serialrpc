@@ -125,9 +125,9 @@ namespace serialrpc {
                     fail(lock);
                     return;
                 }
-                fmt::printf("client: start request done\n");
+                // fmt::printf("client: start request done\n");
                 marshal(*conn, req, err);
-                fmt::printf("client: marshal request done\n");
+                // fmt::printf("client: marshal request done\n");
                 if (err) {
                     fail(lock);
                     return;
@@ -139,7 +139,7 @@ namespace serialrpc {
                 }
             }
             
-            fmt::printf("sent request; now waiting for data\n");
+            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
             return;
         }
@@ -164,7 +164,7 @@ namespace serialrpc {
                     return;;
                 }
                 marshal(*c.conn, req, err);
-                fmt::printf("client: marshal subscribe done\n");
+                // fmt::printf("client: marshal subscribe done\n");
                 if (err) {
                     c.fail(lock);
                     return;
@@ -176,7 +176,7 @@ namespace serialrpc {
                 }
             }
             
-            fmt::printf("sent request; now waiting for data\n");
+            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
         }
 
@@ -193,7 +193,7 @@ namespace serialrpc {
                     c.fail(lock);
                     return;
                 }
-                fmt::printf("client: start request done\n"); 
+                // fmt::printf("client: start request done\n"); 
                 c.conn->write_byte(0, err);
                 if (err) {
                     c.fail(lock);
@@ -206,7 +206,7 @@ namespace serialrpc {
                 }
             }
             
-            fmt::printf("sent request; now waiting for data\n");
+            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
         }
 
@@ -220,81 +220,4 @@ namespace serialrpc {
         void handle_reply(ServerMessageType type, error);
         void handle_log(error err);
     } ;
-
-    struct Call {
-        uint method_id;
-    } ;
-
-    struct Client {
-        std::shared_ptr<io::ReaderWriter> iostream;
-
-        Buffer writebuf = Buffer(1024);
-        Buffer readbuf = Buffer(1024);
-        sync::go input_worker;
-
-        Client(std::shared_ptr<io::ReaderWriter> const& stream);
-
-        str call(uint method_id, str data, error err);
-        void start(error err);
-        void close(error err);
-
-        template <typename T1, typename T2>
-        void call(uint method_id, const T1 &data, T2 &result, error err) {
-            if constexpr (!std::is_same_v<T1, const std::nullptr_t>) {
-                str binary = serialize(writebuf, data, err);
-                if (err) {
-                    return;
-                }
-                str retdata = call(method_id, binary, err);
-                if (err) {
-                    return;
-                }
-
-                if constexpr (!std::is_same_v<T2, const std::nullptr_t>) {
-                    deserialize(retdata, result, err);
-                }
-            } else {
-                str retdata = call(method_id, {}, err);
-                if (err) {
-                    return;
-                }
-
-                if constexpr (!std::is_same_v<T2, const std::nullptr_t>) {
-                    deserialize(retdata, result, err);
-                }
-            }
-        }
-
-        ~Client();
-
-    private:
-        enum State {
-            Starting,
-            Running,
-            Closed,
-            Failing,
-            Failed
-        } state = Starting;
-
-        sync::Mutex call_mutex;
-        sync::Mutex cond_mutex;
-        sync::Cond  call_cond;
-
-        bool has_reply = false;
-
-        str pending_reply;
-        ServerMessageType pending_message_type;
-        //deferror *pending_error; 
-        //Error pending_error;
-
-        void input();
-        str read_body(error);
-        void handle_reply(ServerMessageType type, error err);
-        void handle_error(ServerMessageType type);
-
-        void client_hello(error);
-
-        Error *err = nil;
-    };
-
 }

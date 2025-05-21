@@ -25,166 +25,11 @@ static void discard_line(io::ReaderWriter &conn, error err) {
     }
 }
 
-Server::Server(Service &service) : service(service) {}
-
-
-void Server::serve(io::ReaderWriter &conn, error err) {
-    for (;;) {
-        bool b = handle_rpc(conn, err);
-        if (!b || err) {
-            return;
-        }
-    }
-}
-
-bool Server::handle_rpc(io::ReaderWriter &conn, error err) {
-    uint8 n = conn.read_byte(err);
-    if (err) {
-        return false;
-    }
-
-     if (is_printable(n)) {
-        conn.write("invalid text input; ignoring until end of line\n", err);
-        if (err) {
-            return false;
-        }
-
-        discard_line(conn, err);
-        return true;
-    }
-
-    if ((n & 0xF0) != 0xF0) {
-        conn.write_byte((byte) FatalError, error::ignore);
-        print "serialrpc server: received invalid start byte %#X" % n;
-        err(ErrCorruption());
-        return false;
-    }
-
-    ClientMessageType type = ClientMessageType(n);
-    switch (type) {
-    case Request:
-        print "got requet";
-        handle_request(conn, err);
-        return true;
-
-    case ClientHello:
-        print "got client hello";
-        handle_hello(conn, err);
-        return true;
-
-    case ClientGoodbye:
-        print "got client goodbye";
-        handle_goodbye(conn, err);
-        return false;
-
-    default:
-        print "serialrpc server: unrecognized message type: %#X" % (int) type;
-        conn.write_byte((byte) BadMessage, err);
-    }
-    return true;
-}
-
-void Server::handle_request(io::ReaderWriter &conn, error err) {
-    uint32 method_id = varint::read_uint32(conn, err);
-    if (err) {
-        return;
-    }
-
-    size body_size = varint::read_uint32(conn, err);
-    if (err) {
-        return;
-    }
-
-    // handle too big
-
-    buf body_data = readbuf[0, body_size];
-    io::read_full(conn, body_data, err);
-    if (err) {
-        return;
-    }
-
-
-    CallCtx ctx {
-        .server = *this,
-        .conn   = conn,
-        .err    = err,
-    };
-
-    bool error_occured = false;
-    service.handle(ctx, method_id, body_data, [&](Error &e) {
-        if (error_occured) {
-            return;
-        }
-
-        io::Buf b(this->writebuf);
-        e.fmt(b, error::ignore);
-        ctx.send_error(b.bytes());
-        error_occured = true;
-    });
-
-    if (error_occured) {
-        return;
-    }
-
-    if (!ctx.handled) {
-        conn.write_byte((byte) Unknown, err);
-        if (err) {
-            return;
-        }
-    }
-}
-
-void Server::handle_goodbye(io::ReaderWriter &conn, error err) {
-    conn.write_byte((byte) ServerGoodbye, err);
-    conn.flush(err);
-}
-
-void Server::handle_hello(io::ReaderWriter &conn, error err) {
-    conn.write_byte((byte) ServerHello, err);
-    conn.flush(err);
-}
-
-void CallCtx::reply(str data) {
-    if (handled) {
-        panic("already handled");
-    }
-    handled = true;
-    conn.write_byte((byte) ServerMessageType::Reply, err);
-
-    varint::write_unsigned(conn, len(data), err);
-    conn.write(data, err);
-    conn.flush(err);
-}
-
-
-void CallCtx::send_code(ServerMessageType code) {
-    if (handled) {
-        panic("already handled");
-    }
-    handled = true;
-    conn.write_byte((byte) code, err);
-    conn.flush(err);
-}
-
-
-void CallCtx::send_error(str data) {
-    if (handled) {
-        panic("already handled");
-    }
-    handled = true;
-    conn.write_byte((byte) ServerMessageType::ErrorReply, err);
-
-    varint::write_unsigned(conn, len(data), err);
-    conn.write(data, err);
-    conn.flush(err);
-}
-
 void ServerBase::finish_msg(io::ReaderWriter &conn, error err) {
     conn.flush(err);
 }
 
-void ServerBase::send_code(io::ReaderWriter &conn,
-                                      ServerMessageType code, error err) {
+void ServerBase::send_code(io::ReaderWriter &conn, ServerMessageType code, error err) {
     conn.write_byte(byte(code), err);
     if (err) {
         return;
@@ -193,37 +38,24 @@ void ServerBase::send_code(io::ReaderWriter &conn,
     conn.flush(err);
 }
 
-void serialrpc::ServerBase::send_error(io::ReaderWriter &conn, error const &rpc_error, error err) {
-    conn.write_byte(byte(ServerMessageType::ErrorReply), err);
-    if (err) {
-        return;
-    }
-
-    serialrpc::write_chunked(conn, fmt::sprint(rpc_error), err);
-    if (err) {
-        return;
-    }
-
-    conn.flush(err);
-}
-
-ServerBase::ServerErrorHandler::ServerErrorHandler(io::ReaderWriter &conn, error err)
-        : conn(conn), err(err) {}
+ServerBase::ServerErrorHandler::ServerErrorHandler(ServerBase &base, error err)
+        : base(base), err(err) {}
 
 void ServerBase::ServerErrorHandler::report(Error &rpc_error) {
     fmt::fprintf(os::stderr, "RPC error: %v\n", rpc_error);
 
-    conn.write_byte(byte(ServerMessageType::ErrorReply), err);
+    sync::Lock lock(base.conn->write_mtx);
+    base.conn->write_byte(byte(ServerMessageType::ErrorReply), err);
     if (err) {
         return;
     }
 
-    serialrpc::write_chunked(conn, fmt::sprint(rpc_error), err);
+    serialrpc::write_chunked(*base.conn, fmt::sprint(rpc_error), err);
     if (err) {
         return;
     }
 
-    conn.flush(err);
+    base.conn->flush(err);
 }
 void ServerBase::serve_request(io::ReaderWriter &conn, error err) {
     ServerBase &s = *this;
@@ -275,6 +107,7 @@ void ServerBase::accept(serial::Conn &conn, error err) {
     }
 
     if (b != ClientMessageType::ClientHello) {
+        sync::Lock lock(conn.write_mtx);
         conn.write("invalid input; ignoring\n", err);
         conn.flush(err);
         return;
@@ -312,18 +145,20 @@ void ServerBase::serve(serial::Listener &listener, error err) {
     ServerBase &s = *this;
 
     for (;;) {
+        fmt::printf("Waiting for connection...");
         serial::Conn &conn = listener.accept(err);
         if (err) {
             return;
         }
 
+        fmt::printf(" connected\n");
         s.accept(conn, [](Error &e){
-            // ::printf("ERROR HANDLER server.cc:315\n");
-            fmt::fprintf(os::stderr, "serialrpc server error: %v", e);
+            #ifdef ESP_PLATFORM
+            fmt::fprintf(display::writer, "serialrpc RPC error: <%v>\n", e);
+            #endif
         });
     }
 }
-
 
 void ServerBase::stop_accept() {
     ServerBase &s = *this;
@@ -334,25 +169,26 @@ void ServerBase::stop_accept() {
     s.conn = nil;
 }
 
-void ServerBase::fail() {
-    ServerBase &s = *this;
+// void ServerBase::fail() {
+//     ServerBase &s = *this;
     
-    s.unsubscribe_all();
-    s.conn = nil;
-}
+//     s.unsubscribe_all();
+//     s.conn = nil;
+// }
+
 void serialrpc::ServerBase::send_reply_void(io::ReaderWriter &conn, error err) {
     ServerBase &s = *this;
     sync::Lock lock(s.conn->write_mtx);
 
     start_reply(conn, err);
     if (err) {
-        s.fail();
+        // s.fail();
         return;
     }
 
     finish_msg(*s.conn, err);
     if (err) {
-        s.fail();
+        // s.fail();
         return;
     }
 }

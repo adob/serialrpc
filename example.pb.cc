@@ -292,7 +292,7 @@ namespace examplepb {
             if (err) {
                 return;
             }
-            SumResponse resp = sum_service.sum(msg, RPCServer::ServerErrorHandler(conn, err));
+            SumResponse resp = sum_service.sum(msg, RPCServer::ServerErrorHandler(*this, err));
             if (err) {
                 return;
             }
@@ -327,7 +327,7 @@ namespace examplepb {
             if (err) {
                 return;
             }
-            can_service.send(msg, RPCServer::ServerErrorHandler(conn, err));
+            can_service.send(msg, RPCServer::ServerErrorHandler(*this, err));
             if (err) {
                 return;
             }
