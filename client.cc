@@ -12,6 +12,9 @@
 using namespace lib;
 using namespace serialrpc;
 
+static sync::atomic<int> reqnum = 0;
+static sync::atomic<int> respnum = 0;
+
 static void print_line(byte b, io::ReaderWriter &conn, error err) {
     String msg;
     msg += b;
@@ -103,6 +106,7 @@ void ClientBase::start_request(uint32 rpc_id, CallData *call_data, error err) {
 
 void ClientBase::finish_request(error err) {
     ClientBase &c = *this;
+    reqnum.add(1);
     c.conn->flush(err);
 }
 
@@ -281,9 +285,11 @@ void ClientBase::handle_reply(ServerMessageType type, error err) {
     ClientBase &c = *this;
     // pop call data
     CallData *call_data;
+    respnum.add(1);
     {
         sync::Lock lock(call_mtx);
         if (c.head == nil) {
+            print "unexpected reply: reqnum %v; respnum %v" % reqnum.load(), respnum.load();
             err("unexpected reply");
         }
         call_data = c.head;
