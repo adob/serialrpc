@@ -100,7 +100,6 @@ void ServerBase::start_event(uint32 event_id, error err) {
 
 void ServerBase::accept(serial::Conn &conn, error err) {
     ServerBase &s = *this;
-
     byte b = conn.read_byte(err);
     if (err) {
         return;
@@ -155,6 +154,8 @@ void ServerBase::serve(serial::Listener &listener, error err) {
         s.accept(conn, [](Error &e){
             #ifdef ESP_PLATFORM
             fmt::fprintf(display::writer, "serialrpc RPC error: <%v>\n", e);
+            #elifdef AZURE_RTOS
+            print "serialrpc RPC error: <%v>" % e;
             #endif
         });
     }
