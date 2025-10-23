@@ -110,13 +110,15 @@ void ClientBase::finish_request(error err) {
     c.conn->flush(err);
 }
 
-void ClientBase::handle_error_response(error err) {
-    String text = read_chunked(*conn, err);
+void ClientBase::handle_error_response(error client_err, error err) {
+    ClientBase &c = *this;
+    String text = read_chunked(*c.conn, err);
     if (err) {
-        fail(sync::Lock(call_mtx));
+        //c.fail(sync::Lock(call_mtx));
+        return;
     }
 
-    err(fmt::errorf("rpc error: %s", text));
+    client_err(ErrReply(text));
 }
 
 void ClientBase::fail(sync::Lock const&) {
@@ -166,7 +168,7 @@ void ClientBase::start_unlocked(error err) {
 void ClientBase::input() {
     ClientBase &c = *this;
     print "input started";
-    ErrorReporter err = [&](Error &e){
+    ErrorFunc err = [&](Error &e){
         eprint "serialrpc error: %v" % e;
         panic("!");
 
@@ -300,9 +302,9 @@ void ClientBase::handle_reply(ServerMessageType type, error err) {
     }
 
     if (type != ServerMessageType::Reply) {
-        call_data->client->handle_error_response(*call_data->err);
+        call_data->client->handle_error_response(*call_data->err, err);
     } else if (call_data->unmarshal) {
-        call_data->unmarshal(call_data, *c.conn);
+        call_data->unmarshal(call_data, *c.conn, err);
     }
 
     call_data->response_received.notify();

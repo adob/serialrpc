@@ -186,6 +186,11 @@ uint32 serialrpc::unmarshal<uint32>(io::Reader &in, error err, int /*nesting*/) 
     return varint::read_uint32(in, err);
 }
 
+template <>
+bool serialrpc::unmarshal<bool>(io::Reader &, error, int /*nesting*/) {
+    return true;
+}
+
 static void write_tags(io::Writer &out, int32 field_number, Tag::Type tag, Stack &stack, error err) {
     for (uint32 elem : stack) {
         write_tag(out, elem, Tag::Start, err);
@@ -225,7 +230,7 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_number, uint32 val, e
     varint::write_uint32(out, val, err);
 }
 
-void serialrpc::marshal_field(io::Writer &out, int32 field_numer, str s, error err, int nesting, Stack &stack) {
+void serialrpc::marshal_field(io::Writer &out, int32 field_number, str s, error err, int /*nesting*/, Stack &stack) {
     if (len(s) == 0) {
         return;
     }
@@ -238,7 +243,7 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_numer, str s, error e
     }
     stack.clear();
 
-    write_tag(out, field_numer, Tag::Len, err);
+    write_tag(out, field_number, Tag::Len, err);
     if (err) {
         return;
     }
@@ -249,6 +254,25 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_numer, str s, error e
     }
 
     out.write(s, err);
+}
+
+void serialrpc::marshal_field(io::Writer &out, int32 field_number, bool val, error err, int /*nesting*/, Stack &stack) {
+    if (!val) {
+        return;
+    }
+
+    for (uint32 tag : stack) {
+        write_tag(out, tag, Tag::Start, err);
+        if (err) {
+            return;
+        }
+    }
+    stack.clear();
+
+    write_tag(out, field_number, Tag::Len, err);
+    if (err) {
+        return;
+    }
 }
 
 

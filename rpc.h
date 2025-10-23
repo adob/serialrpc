@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lib/error.h"
+#include "lib/io/io.h"
 
 namespace serialrpc {
     using namespace lib;
@@ -25,7 +26,12 @@ namespace serialrpc {
         ClientGoodbye = 0xF2,
     };
     
-    struct ErrReply : lib::ErrorBase<ErrReply, "serialrpc error reply"> {};
+    struct ErrReply : lib::Error {
+        str msg;
+        ErrReply(str msg) : msg(msg) {}
+        void fmt(io::Writer &out, error err) const override;
+        // lib::ErrorBase<ErrReply, "serialrpc error reply"> {};
+    } ;
     struct ErrUnknownMethod  : ErrorBase<ErrUnknownMethod, "serialrpc unknown method"> {};
     struct ErrRequestTooBig  : ErrorBase<ErrRequestTooBig, "serialrpc request too big"> {};
     struct ErrResponseTooBig : ErrorBase<ErrResponseTooBig, "serialrpc request too big"> {};

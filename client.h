@@ -44,7 +44,7 @@ namespace serialrpc {
             ClientBase *client = nil;
             void *resp = nil;
             error *err = nil;
-            void (*unmarshal)(CallData*, io::Reader &in) = nil;
+            void (*unmarshal)(CallData*, io::Reader &in, error err) = nil;
         } ;
 
         enum State {
@@ -77,9 +77,9 @@ namespace serialrpc {
                 .client    = this,
                 .resp      = &resp,
                 .err       = &err,
-                .unmarshal = [](CallData *cd, io::Reader &in) {
+                .unmarshal = [](CallData *cd, io::Reader &in, error err) {
                     Resp *resp = (Resp*) cd->resp;
-                    *resp = unmarshal<Resp>(in, *cd->err);
+                    *resp = unmarshal<Resp>(in, err);
                 },
             };
 
@@ -213,7 +213,7 @@ namespace serialrpc {
         void start_unlocked(error err);
         void start_request(uint32 rpc_id, CallData *call_data, error err);
         void finish_request(error err);
-        void handle_error_response(error err);
+        void handle_error_response(error client_error, error err);
         void input();
         void client_hello(error err);
         void fail(sync::Lock const&);

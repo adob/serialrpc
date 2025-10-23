@@ -6,6 +6,9 @@
 #include "internal.h"
 #include "lib/print.h"
 #include "serial/serial_listener.h"
+#include "zephyr/kernel.h"
+#include <sys/unistd.h>
+// #include "zephyr/kernel.h"
 
 #ifdef ESP_PLATFORM
     #include "../../m5stack/src/display.h"
@@ -41,21 +44,23 @@ void ServerBase::send_code(io::ReaderWriter &conn, ServerMessageType code, error
 ServerBase::ServerErrorHandler::ServerErrorHandler(ServerBase &base, error err)
         : base(base), err(err) {}
 
-void ServerBase::ServerErrorHandler::report(Error &rpc_error) {
+void ServerBase::ServerErrorHandler::handle(Error &rpc_error) {
+    ServerErrorHandler &s = *this;
+
     fmt::fprintf(os::stderr, "RPC error: %v\n", rpc_error);
 
     sync::Lock lock(base.conn->write_mtx);
-    base.conn->write_byte(byte(ServerMessageType::ErrorReply), err);
-    if (err) {
+    base.conn->write_byte(byte(ServerMessageType::ErrorReply), s.err);
+    if (s.err) {
         return;
     }
 
-    serialrpc::write_chunked(*base.conn, fmt::sprint(rpc_error), err);
-    if (err) {
+    serialrpc::write_chunked(*base.conn, fmt::sprint(rpc_error), s.err);
+    if (s.err) {
         return;
     }
 
-    base.conn->flush(err);
+    base.conn->flush(s.err);
 }
 void ServerBase::serve_request(io::ReaderWriter &conn, error err) {
     ServerBase &s = *this;
@@ -120,6 +125,8 @@ void ServerBase::accept(serial::Conn &conn, error err) {
     }
 
     for (;;) {
+        // uint64_t start = k_cycle_get_64();
+        
         uint32 rpc_id = varint::read_uint32(conn, err);
         if (err) {
             s.stop_accept();
@@ -137,27 +144,36 @@ void ServerBase::accept(serial::Conn &conn, error err) {
             s.stop_accept();
             return;
         }
+
+        // uint64_t end = k_cycle_get_64();
+        // uint64_t cycles = end - start;
+        // double ms = cycles / 64'000'000.0 * 1'000.0;
+        
+        // printk("v2 handling took %f ms\n", ms);
     }
 }
 
 void ServerBase::serve(serial::Listener &listener, error err) {
     ServerBase &s = *this;
-
+    int cnt = 1;
     for (;;) {
-        fmt::printf("Waiting for connection...");
+        fmt::printf("Waiting for connection %d...", cnt++);
+
         serial::Conn &conn = listener.accept(err);
         if (err) {
             return;
         }
 
         fmt::printf(" connected\n");
+        
         s.accept(conn, [](Error &e){
             #ifdef ESP_PLATFORM
             fmt::fprintf(display::writer, "serialrpc RPC error: <%v>\n", e);
-            #elifdef AZURE_RTOS
-            print "serialrpc RPC error: <%v>" % e;
+            #else
+            print "serialrpc RPC error: %v" % e;
             #endif
         });
+        // printk("accept finished\n");
     }
 }
 

@@ -16,13 +16,13 @@ namespace serialrpc {
         serial::Conn *conn = nil;
         // sync::Mutex send_mtx;
 
-        struct ServerErrorHandler : ErrorReporterInterface {
+        struct ServerErrorHandler : ErrorReporter {
             ServerBase &base;
             error err;
 
             ServerErrorHandler(ServerBase &base, error err);
 
-            virtual void report(Error &) override;
+            virtual void handle(Error &) override;
         } ;
 
         void serve(serial::Listener &listener, error err);
@@ -76,7 +76,7 @@ namespace serialrpc {
             if (s.conn == nil) {
                 return;
             }
-            ErrorReporter err = [](Error&) {};
+            ErrorFunc err = [](Error&) {};
             s.start_event(event_id, err);
             if (err) {
                 // s.fail();
