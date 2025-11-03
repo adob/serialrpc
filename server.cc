@@ -114,6 +114,7 @@ void ServerBase::accept(serial::Conn &conn, error err) {
         sync::Lock lock(conn.write_mtx);
         conn.write("invalid input; ignoring\n", err);
         conn.flush(err);
+        print "invalid hello";
         return;
     }
 
@@ -136,6 +137,10 @@ void ServerBase::accept(serial::Conn &conn, error err) {
 
         if (rpc_id == 0) {
             s.handle_goodbye(err);
+            if (err) {
+                return;
+            }
+            print "goodbye";
             return;
         }
 
