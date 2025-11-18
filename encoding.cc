@@ -145,6 +145,10 @@ void serialrpc::skip(io::Reader &in, Tag::Type type, error err, int nesting) {
             if (err) {
                 return;
             }
+            if (nesting < 0) {
+                err("excessive nesting");
+                return;
+            }
             skip(in, tag.type, err, nesting-1);
             if (err) {
                 return;
@@ -164,6 +168,14 @@ void serialrpc::skip(io::Reader &in, Tag::Type type, error err, int nesting) {
         err("serialrpc: invalid tag");
         return;
     }
+}
+
+void serialrpc::skip(io::Reader &in, error err) {
+    Tag::Type tag = (Tag::Type) in.read_byte(err);
+    if (err) {
+        return;
+    }
+    skip(in, tag, err, 128);
 }
 
 // template <>
@@ -187,8 +199,35 @@ uint32 serialrpc::unmarshal<uint32>(io::Reader &in, error err, int /*nesting*/) 
 }
 
 template <>
+int64 serialrpc::unmarshal<int64>(io::Reader &in, error err, int /*nesting*/) {
+    return varint::read_sint64(in, err);
+}
+
+template <>
+uint64 serialrpc::unmarshal<uint64>(io::Reader &in, error err, int /*nesting*/) {
+    return varint::read_uint64(in, err);
+}
+
+template <>
 bool serialrpc::unmarshal<bool>(io::Reader &, error, int /*nesting*/) {
     return true;
+}
+
+template <>
+str serialrpc::unmarshal<str>(io::Reader &in, error err, int /*nesting*/) {
+    size n = varint::read_unsigned<size>(in, err);
+    if (err) {
+        return {};
+    }
+
+    str s = in.skip(n, err);
+    if (err) {
+        return {};
+    }
+    if (len(s) != n) {
+        err("str unmarhsal short read");
+    }
+    return s;
 }
 
 static void write_tags(io::Writer &out, int32 field_number, Tag::Type tag, Stack &stack, error err) {
@@ -203,6 +242,7 @@ static void write_tags(io::Writer &out, int32 field_number, Tag::Type tag, Stack
     write_tag(out, field_number, tag, err);
 }
 
+// int32
 void serialrpc::marshal_field(io::Writer &out, int32 field_number, int32 val, error err, int /*nesting*/, Stack &stack) {
     if (val == 0) {
         return;
@@ -216,19 +256,49 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_number, int32 val, er
     varint::write_sint32(out, val, err);
 }
 
+// int64
+void serialrpc::marshal_field(io::Writer &out, int32 field_number, int64 val, error err, int /*nesting*/, Stack &stack) {
+     if (val == 0) {
+        return;
+    }
 
+    write_tags(out, field_number, Tag::VarInt, stack, err);
+    if (err) {
+        return;
+    }
+
+    varint::write_sint64(out, val, err);
+}
+
+// uint32
 void serialrpc::marshal_field(io::Writer &out, int32 field_number, uint32 val, error err, int /*nesting*/, Stack &stack) {
     if (val == 0) {
         return;
     }
     
-    write_tag(out, field_number, Tag::VarInt, err);
+    write_tags(out, field_number, Tag::VarInt, stack, err);
     if (err) {
         return;
     }
     
     varint::write_uint32(out, val, err);
 }
+
+
+// uint64
+void serialrpc::marshal_field(io::Writer &out, int32 field_number, uint64 val, error err, int /*nesting*/, Stack &stack) {
+    if (val == 0) {
+        return;
+    }
+    
+    write_tags(out, field_number, Tag::VarInt, stack, err);
+    if (err) {
+        return;
+    }
+    
+    varint::write_uint64(out, val, err);
+}
+
 
 void serialrpc::marshal_field(io::Writer &out, int32 field_number, str s, error err, int /*nesting*/, Stack &stack) {
     if (len(s) == 0) {
@@ -274,6 +344,8 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_number, bool val, err
         return;
     }
 }
+
+void marshal_field(io::Writer &out, int32 field_number, uint64 val, error err, int nesting, Stack &stack);
 
 
 void serialrpc::write_chunked(io::Writer &out, io::WriterTo const &msg,

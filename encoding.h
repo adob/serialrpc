@@ -150,6 +150,8 @@ namespace serialrpc {
     
     void marshal_field(io::Writer &out, int32 field_number, int32 val, error err, int nesting, Stack &stack);
     void marshal_field(io::Writer &out, int32 field_number, uint32 val, error err, int nesting, Stack &stack);
+    void marshal_field(io::Writer &out, int32 field_number, int64 val, error err, int nesting, Stack &stack);
+    void marshal_field(io::Writer &out, int32 field_number, uint64 val, error err, int nesting, Stack &stack);
     void marshal_field(io::Writer &out, int32 field_number, bool val, error err, int nesting, Stack &stack);
 
     void marshal_field(io::Writer &out, int32 field_numer, str s, error err, int nesting, Stack &stack);
@@ -194,6 +196,8 @@ namespace serialrpc {
         return T::unmarshal(in, err, nesting);
     }
 
+    void skip(io::Reader &in, error err);
+
     size unmarshal_bytes(io::Reader &in, buf bytes, error err);
 
     template<typename T>
@@ -224,7 +228,16 @@ namespace serialrpc {
     uint32 unmarshal<uint32>(io::Reader &in, error err, int /*nesting*/);
 
     template <>
+    int64 unmarshal<int64>(io::Reader &in, error err, int /*nesting*/);
+
+    template <>
+    uint64 unmarshal<uint64>(io::Reader &in, error err, int /*nesting*/);
+
+    template <>
     bool unmarshal<bool>(io::Reader &in, error err, int /*nesting*/);
+
+    template <>
+    str unmarshal<str>(io::Reader &in, error err, int /*nesting*/);
 
     // template <size N>
     // InlineString<N> unmarshal(io::Reader &in, error err, int /*nesting*/) {

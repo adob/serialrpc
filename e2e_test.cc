@@ -3,7 +3,9 @@
 #include "lib/testing/testing.h"
 #include "lib/print.h"
 #include "serial/serial_listener.h"
-#include "example.pb.h"
+#include "example.pb_msg.h"
+#include "example.pb_client.h"
+#include "example.pb_server.h"
 
 #include <memory>
 
@@ -52,7 +54,7 @@ struct Summer : examplepb::SumService {
         return {.answer = req.left + req.right};
     }
 
-    void subscribe_sum_events(examplepb::RPCServer &server, examplepb::SumEventsRequest const &req) override {
+    void subscribe_sum_events(examplepb::RPCServer &server, examplepb::SumEventsRequest const &req, error) override {
         print "SERVER GOT SUBSCRIBE";
         if (req.v != 42) {
             panic("bad req value");
@@ -73,9 +75,15 @@ struct Summer : examplepb::SumService {
     }
 } ;
 
-struct CANService: examplepb::CANService {
+struct CANService : examplepb::CANService {
     void send(examplepb::CANFrame const &req, lib::error) override {
         print "CANService::SEND id %v" % req.frame_id;
+    }
+} ;
+
+struct ExampleService : examplepb::ExampleService {
+    virtual void say_hello(lib::error /*err*/) override {
+        print "say_hello()";
     }
 } ;
 
@@ -98,7 +106,8 @@ void test_e2e(testing::T &t) {
 
     Summer summer;
     CANService can;
-    examplepb::RPCServer server(summer, can);
+    ExampleService example;
+    examplepb::RPCServer server(summer, can, example);
 
     sync::atomic<bool> stop = false;
 
@@ -140,11 +149,12 @@ void test_e2e(testing::T &t) {
 
     client.can_service.send({.frame_id = 123, .data = "hello"}, error::panic);
 
+    client.example_service.say_hello(error::panic);
+
     stop.store(true);
     client.close(error::panic);
 
     if (received_events != std::vector<int>{1, 2, 3}) {
         t.errorf("received events got %v; want [1, 2, 3]", received_events);
     }
-
 }

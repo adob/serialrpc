@@ -144,6 +144,42 @@ namespace serialrpc {
             return;
         }
 
+        void call_void(uint32 rpc_id, error err) {
+            ClientBase &c = *this;
+            
+            CallData call_data = {
+                .client    = this,
+                .err       = &err,
+            };
+
+            {
+                sync::Lock lock(c.call_mtx);
+                c.start_request(rpc_id, &call_data, err);
+                if (err) {
+                    fail(lock);
+                    return;
+                }
+                conn->write_byte(Tag::End, err);
+                if (err) {
+                    fail(lock);
+                    return;
+                }
+                if (err) {
+                    fail(lock);
+                    return;
+                }
+                finish_request(err);    
+                if (err) {
+                    fail(lock);
+                    return;
+                }
+            }
+            
+            // fmt::printf("sent request; now waiting for data\n");
+            call_data.response_received.wait();
+            return;
+        }
+
         template <typename T>
         void subscribe(uint32 event_id, T const &req, error err) {
             ClientBase &c = *this;

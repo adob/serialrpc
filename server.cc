@@ -6,7 +6,6 @@
 #include "internal.h"
 #include "lib/print.h"
 #include "serial/serial_listener.h"
-#include "zephyr/kernel.h"
 #include <sys/unistd.h>
 // #include "zephyr/kernel.h"
 
@@ -127,12 +126,12 @@ void ServerBase::accept(serial::Conn &conn, error err) {
 
     for (;;) {
         // uint64_t start = k_cycle_get_64();
-        
         uint32 rpc_id = varint::read_uint32(conn, err);
         if (err) {
             s.stop_accept();
             return;
         }
+        // print "seriarpc::accept pc id %d" % rpc_id;
 
 
         if (rpc_id == 0) {

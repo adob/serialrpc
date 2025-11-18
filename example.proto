@@ -45,3 +45,8 @@ service CANService {
     rpc send(CANFrame) returns (Nothing) { option (method_id) = 1; }
 }
 
+service ExampleService {
+    option (service_id) = 1;
+
+    rpc say_hello(Nothing) returns (Nothing) { option (method_id) = 1; }
+}
