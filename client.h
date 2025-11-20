@@ -24,6 +24,7 @@ namespace serialrpc {
 
         void start(error err);
         void close(error err);
+        void wait(error err);
 
         ~ClientBase();
 
@@ -201,6 +202,40 @@ namespace serialrpc {
                 }
                 marshal(*c.conn, req, err);
                 // fmt::printf("client: marshal subscribe done\n");
+                if (err) {
+                    c.fail(lock);
+                    return;
+                }
+                finish_request(err);    
+                if (err) {
+                    c.fail(lock);
+                    return;
+                }
+            }
+            
+            // fmt::printf("sent request; now waiting for data\n");
+            call_data.response_received.wait();
+        }
+
+        void subscribe(uint32 event_id, error err) {
+             ClientBase &c = *this;
+            CallData call_data = {
+                .client    = this,
+                .err       = &err,
+            };
+            {
+                sync::Lock lock(c.call_mtx);
+                c.start_request(event_id, &call_data, err);
+                if (err) {
+                    c.fail(lock);
+                    return;
+                }
+                c.conn->write_byte(1, err);
+                if (err) {
+                    c.fail(lock);
+                    return;;
+                }
+                c.conn->write_byte(Tag::End, err);
                 if (err) {
                     c.fail(lock);
                     return;

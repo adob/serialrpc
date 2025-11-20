@@ -39,6 +39,27 @@ void ClientBase::start(error err) {
     start_unlocked(err);
 }
 
+void ClientBase::wait(error err) {
+    ClientBase &c = *this;
+
+    // c.input_worker.join();
+
+    sync::Lock lock(cond_mutex);
+    for (;;) {
+        State state = c.state.load();
+        if (state == Closed || state == Failing || state == Failed) {
+            break;
+        }
+        this->call_cond.wait(this->cond_mutex);
+    }
+
+    if (c.state.load() == Failing) {
+        err(*this->err);
+        this->state.store(Failed);
+        this->call_cond.signal();
+    }
+}
+
 void ClientBase::close(error err) {
     ClientBase &c = *this;
     sync::Lock lock(c.call_mtx);
@@ -55,8 +76,12 @@ again:
             return;
             
         case Failing:
+            err(*this->err);
+            this->state.store(Failed);
+            return;
+
         case Failed:
-            err("failing or failed");
+            err("failed");
             return;
     }
 
@@ -141,13 +166,47 @@ again:
 
 void ClientBase::start_unlocked(error err) {
     ClientBase &c = *this;
+again:
     State state = c.state.load();
 
-    do {
-        if (state != New) {
-            return;
+    switch (state) {
+    case New:
+        if (!c.state.compare_and_swap(&state, Starting)) {
+            goto again;
         }
-    } while (c.state.compare_and_swap(&state, Starting));
+        break;
+
+    case Starting: {
+        sync::Lock lock(cond_mutex);
+        while (c.state.load() == Starting) {
+            this->call_cond.wait(this->cond_mutex);
+        }
+        goto again;
+    }
+    
+    case Running:
+        return;
+        
+    case Closed:
+        err("closed");
+        return;
+
+    case Failing: {
+        sync::Lock lock(cond_mutex);
+        if (c.state.load() != Failing) {
+            goto again;
+        }
+
+        err(*this->err);
+        this->state.store(Failed);
+        this->call_cond.signal();
+        return;
+    }
+    
+    case Failed:
+        err("failed");
+        return;
+    }
 
     this->input_worker = sync::go([&] { this->input(); });
 
@@ -156,7 +215,7 @@ void ClientBase::start_unlocked(error err) {
         this->call_cond.wait(this->cond_mutex);
     }
 
-    print "started";
+    print "serialrpc started";
 
     if (c.state.load() == Failing) {
         err(*this->err);
@@ -167,28 +226,27 @@ void ClientBase::start_unlocked(error err) {
 
 void ClientBase::input() {
     ClientBase &c = *this;
-    print "input started";
     ErrorFunc err = [&](Error &e){
-        eprint "serialrpc error: %v" % e;
-        panic("!");
-
         sync::Lock lock(cond_mutex);
 
         this->err = &e;
         this->state.store(Failing);
         this->call_cond.signal();
 
+        while (c.head != nil) {
+            (*c.head->err)(e);
+            c.head->response_received.notify();
+            c.head = c.head->next;
+        }
+
         while (this->state.load() != Failed) {
             this->call_cond.wait(cond_mutex);
         }
 
-        eprint "serialrpc error handling done";
-
-        this-> err = nil;
+        this->err = nil;
     };
 
     this->client_hello(err);
-    print "sent client hello";
     if (err) {
         return;
     }
@@ -373,11 +431,11 @@ void ClientBase::Waiter::wait() {
     for (;;) {
         int s = state.load(std::memory_order::acquire);
         if (s == 0) {
-        state.wait(0);
-        continue;
+            state.wait(0);
+            continue;
         }
         if (s == 2) {
-        return;
+            return;
         }
         // spin wait
     }

@@ -27,12 +27,13 @@ namespace serialrpc {
 
         void serve(serial::Listener &listener, error err);
         void accept(serial::Conn &conn, error err);
+        void send_goodbye(error err);
 
       protected:
         virtual void handle_request(uint32 rpc_id, io::ReaderWriter &conn, error err) = 0;
         virtual void unsubscribe_all() = 0;
 
-        void serve_request(io::ReaderWriter &conn, error err);
+        // void serve_request(io::ReaderWriter &conn, error err);
         void stop_accept();
         // void fail();
 
