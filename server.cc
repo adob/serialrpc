@@ -31,7 +31,8 @@ void ServerBase::finish_msg(io::ReaderWriter &conn, error err) {
     conn.flush(err);
 }
 
-void ServerBase::send_code(io::ReaderWriter &conn, ServerMessageType code, error err) {
+void ServerBase::send_code(io::ReaderWriter &conn, ServerMessageType code, error err) {    
+    sync::Lock lock(this->conn->write_mtx);
     conn.write_byte(byte(code), err);
     if (err) {
         return;
@@ -84,6 +85,8 @@ void ServerBase::ServerErrorHandler::handle(Error &rpc_error) {
 void serialrpc::ServerBase::handle_goodbye(error err) {
     ServerBase &s = *this;
 
+    sync::Lock lock(s.conn->write_mtx);
+
     s.conn->write_byte(byte(ServerGoodbye), err);
     s.conn->flush(err);
     s.stop_accept();
@@ -133,11 +136,6 @@ void ServerBase::accept(serial::Conn &conn, error err) {
         }
         // print "seriarpc::accept pc id %d" % rpc_id;
 
-
-        // this lock is to prevent events from being
-        // sent out before the subscribe request has
-        // been acknowledged
-        sync::Lock lock(s.conn->write_mtx);
 
         if (rpc_id == 0) {
             s.handle_goodbye(err);
