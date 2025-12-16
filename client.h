@@ -20,8 +20,10 @@ namespace serialrpc {
     struct ClientBase {
         std::shared_ptr<lib::io::ReaderWriter> conn;
 
-        ClientBase(std::shared_ptr<lib::io::ReaderWriter> conn);
+        ClientBase() : conn(nil) {}
+        ClientBase(std::shared_ptr<lib::io::ReaderWriter> const &conn);
 
+        void init(std::shared_ptr<lib::io::ReaderWriter> const &conn);
         void start(error err);
         void close(error err);
         void wait(error err);

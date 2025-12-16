@@ -34,7 +34,6 @@ static void print_line(byte b, io::ReaderWriter &conn, error err) {
 }
 
 void ClientBase::start(error err) {
-    print "starting client";
     sync::Lock lock(call_mtx);
     start_unlocked(err);
 }
@@ -63,6 +62,10 @@ void ClientBase::wait(error err) {
 void ClientBase::close(error err) {
     ClientBase &c = *this;
     sync::Lock lock(c.call_mtx);
+
+    if (c.conn == nil) {
+        return;
+    }
 
     State state = c.state.load();
 again:
@@ -417,7 +420,7 @@ again:
     this->call_cond.signal();
 }
 
-ClientBase::ClientBase(std::shared_ptr<lib::io::ReaderWriter> conn)
+ClientBase::ClientBase(std::shared_ptr<lib::io::ReaderWriter> const &conn)
     : conn(conn) {}
 
 void ClientBase::Waiter::notify() {
@@ -442,4 +445,14 @@ void ClientBase::Waiter::wait() {
 }
 serialrpc::ClientBase::~ClientBase() {
     this->close(error::ignore);
+}
+void serialrpc::ClientBase::init(std::shared_ptr<lib::io::ReaderWriter> const &conn) {
+    ClientBase &c = *this;
+    sync::Lock lock(c.call_mtx);
+
+    if (c.conn != nil) {
+        panic("already initialized");
+    }
+
+    c.conn = conn;
 }
