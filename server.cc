@@ -3,9 +3,8 @@
 #include "lib/io/io.h"
 #include "lib/varint/varint.h"
 #include "rpc.h"
-#include "internal.h"
 #include "lib/print.h"
-#include "serial/serial_listener.h"
+#include "lib/serial/serial_listener.h"
 #include <sys/unistd.h>
 // #include "zephyr/kernel.h"
 
@@ -18,14 +17,14 @@
 
 using namespace serialrpc;
 
-static void discard_line(io::ReaderWriter &conn, error err) {
-    for (;;) {
-        byte b = conn.read_byte(err);
-        if (err || b == '\n') {
-            return;
-        }
-    }
-}
+// static void discard_line(io::ReaderWriter &conn, error err) {
+//     for (;;) {
+//         byte b = conn.read_byte(err);
+//         if (err || b == '\n') {
+//             return;
+//         }
+//     }
+// }
 
 void ServerBase::finish_msg(io::ReaderWriter &conn, error err) {
     conn.flush(err);

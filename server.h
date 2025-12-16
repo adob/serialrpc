@@ -7,7 +7,7 @@
 
 #include "lib/error.h"
 #include "lib/io/io.h"
-#include "serial/serial_listener.h"
+#include "lib/serial/serial_listener.h"
 
 namespace serialrpc {
     using namespace lib;
