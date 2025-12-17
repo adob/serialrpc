@@ -4,6 +4,7 @@
 #include "lib/io/util.h"
 #include "lib/print.h"
 #include "lib/varint/varint.h"
+#include <bit>
 
 using namespace lib;
 using namespace serialrpc;
@@ -209,6 +210,47 @@ uint64 serialrpc::unmarshal<uint64>(io::Reader &in, error err, int /*nesting*/) 
 }
 
 template <>
+float32 serialrpc::unmarshal<float32>(io::Reader &in, error err, int /*nesting*/) {
+    static_assert(sizeof(float32) == 4, "float must be 32-bit IEEE-754");
+    byte bytes[4];
+    io::read_full(in, bytes, err);
+    if (err) {
+        return 0;
+    }
+
+    uint32_t bits =
+        (uint32_t(bytes[0]) << 0)  |
+        (uint32_t(bytes[1]) << 8)  |
+        (uint32_t(bytes[2]) << 16) |
+        (uint32_t(bytes[3]) << 24);
+
+    return std::bit_cast<float32>(bits);
+}
+
+template <>
+float64 serialrpc::unmarshal<float64>(io::Reader &in, error err, int /*nesting*/) {
+    static_assert(sizeof(float64) == 8, "float must be 64-bit IEEE-754");
+    byte bytes[8];
+    io::read_full(in, bytes, err);
+    if (err) {
+        return 0;
+    }
+
+    uint64_t bits =
+        (uint64_t(bytes[0]) << 0)  |
+        (uint64_t(bytes[1]) << 8)  |
+        (uint64_t(bytes[2]) << 16) |
+        (uint64_t(bytes[3]) << 24) |
+        (uint64_t(bytes[4]) << 32) |
+        (uint64_t(bytes[5]) << 40) |
+        (uint64_t(bytes[6]) << 48) |
+        (uint64_t(bytes[7]) << 56);
+
+    return std::bit_cast<float64>(bits);
+}
+
+
+template <>
 bool serialrpc::unmarshal<bool>(io::Reader &, error, int /*nesting*/) {
     return true;
 }
@@ -345,7 +387,48 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_number, bool val, err
     }
 }
 
-void marshal_field(io::Writer &out, int32 field_number, uint64 val, error err, int nesting, Stack &stack);
+// void marshal_field(io::Writer &out, int32 field_number, uint64 val, error err, int nesting, Stack &stack);
+
+void serialrpc::marshal_field(io::Writer &out, int32 field_number, float32 val, error err, int nesting, Stack &stack) {
+    if (val == 0) {
+        return;
+    }
+    
+    write_tags(out, field_number, Tag::I32, stack, err);
+    if (err) {
+        return;
+    }
+
+    static_assert(sizeof(float32) == 4, "float must be 32-bit IEEE-754");
+
+
+    auto b = std::bit_cast<std::array<byte, 4>>(val);
+    if constexpr (std::endian::native == std::endian::big) {
+        std::reverse(b.begin(), b.end());
+    }
+
+    out.write(str(b.data(), b.size()), err);
+}
+
+void serialrpc::marshal_field(io::Writer &out, int32 field_number, double val, error err, int nesting, Stack &stack) {
+    if (val == 0) {
+        return;
+    }
+    
+    write_tags(out, field_number, Tag::I64, stack, err);
+    if (err) {
+        return;
+    }
+
+    static_assert(sizeof(float32) == 4, "float must be 64-bit IEEE-754");
+
+    auto b = std::bit_cast<std::array<byte, 8>>(val);
+    if constexpr (std::endian::native == std::endian::big) {
+        std::reverse(b.begin(), b.end());
+    }
+
+    out.write(str(b.data(), b.size()), err);
+}
 
 
 void serialrpc::write_chunked(io::Writer &out, io::WriterTo const &msg,

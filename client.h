@@ -93,9 +93,9 @@ namespace serialrpc {
                     fail(lock);
                     return {};
                 }
-                fmt::printf("client: start request done\n");
+                // fmt::printf("client: start request done\n");
                 marshal(*conn, req, err);
-                fmt::printf("client: marshal request done\n");
+                // fmt::printf("client: marshal request done\n");
                 if (err) {
                     fail(lock);
                     return {};
@@ -107,7 +107,47 @@ namespace serialrpc {
                 }
             }
             
-            fmt::printf("sent request; now waiting for data\n");
+            // fmt::printf("sent request; now waiting for data\n");
+            call_data.response_received.wait();
+            return resp;
+        }
+
+        template <typename Resp>
+        Resp call(uint32 rpc_id, error err) {
+            ClientBase &c = *this;
+            Resp resp;
+            CallData call_data = {
+                .client    = this,
+                .resp      = &resp,
+                .err       = &err,
+                .unmarshal = [](CallData *cd, io::Reader &in, error err) {
+                    Resp *resp = (Resp*) cd->resp;
+                    *resp = unmarshal<Resp>(in, err);
+                },
+            };
+
+            {
+                sync::Lock lock(c.call_mtx);
+                c.start_request(rpc_id, &call_data, err);
+                if (err) {
+                    fail(lock);
+                    return {};
+                }
+                // fmt::printf("client: start request done\n");
+                conn->write_byte(Tag::End, err);
+                // fmt::printf("client: marshal request done\n");
+                if (err) {
+                    fail(lock);
+                    return {};
+                }
+                finish_request(err);    
+                if (err) {
+                    fail(lock);
+                    return {};
+                }
+            }
+            
+            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
             return resp;
         }

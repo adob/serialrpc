@@ -153,6 +153,8 @@ namespace serialrpc {
     void marshal_field(io::Writer &out, int32 field_number, int64 val, error err, int nesting, Stack &stack);
     void marshal_field(io::Writer &out, int32 field_number, uint64 val, error err, int nesting, Stack &stack);
     void marshal_field(io::Writer &out, int32 field_number, bool val, error err, int nesting, Stack &stack);
+    void marshal_field(io::Writer &out, int32 field_number, float32 val, error err, int nesting, Stack &stack);
+    void marshal_field(io::Writer &out, int32 field_number, float64 val, error err, int nesting, Stack &stack);
 
     void marshal_field(io::Writer &out, int32 field_numer, str s, error err, int nesting, Stack &stack);
 
@@ -232,6 +234,12 @@ namespace serialrpc {
 
     template <>
     uint64 unmarshal<uint64>(io::Reader &in, error err, int /*nesting*/);
+
+    template <>
+    float32 unmarshal<float32>(io::Reader &in, error err, int /*nesting*/);
+    
+    template <>
+    float64 unmarshal<float64>(io::Reader &in, error err, int /*nesting*/);
 
     template <>
     bool unmarshal<bool>(io::Reader &in, error err, int /*nesting*/);
