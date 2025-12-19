@@ -7,7 +7,11 @@ namespace serialrpc {
 
 
 void ErrReply::fmt(io::Writer &out, error) const {
-  fmt::fprintf(out, "rpc replied with error: %v", this->msg);
+  ErrReply const &e = *this;
+  fmt::fprintf(out, "%s::%s rpc replied with error: %v", 
+      e.service_name,
+      e.procedure_name,
+      e.msg);
 }
 
 } // namespace serialrpc

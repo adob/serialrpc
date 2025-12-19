@@ -27,8 +27,14 @@ namespace serialrpc {
     };
     
     struct ErrReply : lib::Error {
+        str service_name;
+        str procedure_name;
         str msg;
-        ErrReply(str msg) : msg(msg) {}
+        ErrReply(str service_name, str procedure_name, str msg) : 
+              service_name(service_name)
+            , procedure_name(procedure_name)
+            , msg(msg)
+            {}
         void fmt(io::Writer &out, error err) const override;
         // lib::ErrorBase<ErrReply, "serialrpc error reply"> {};
     } ;

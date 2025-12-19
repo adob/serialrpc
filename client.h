@@ -47,6 +47,8 @@ namespace serialrpc {
             ClientBase *client = nil;
             void *resp = nil;
             error *err = nil;
+            str service_name;
+            str procedure_name;
             void (*unmarshal)(CallData*, io::Reader &in, error err) = nil;
         } ;
 
@@ -73,13 +75,15 @@ namespace serialrpc {
         virtual void handle_event(uint32 event_id, error err) = 0;
 
         template <typename Req, typename Resp>
-        Resp call(uint32 rpc_id, Req const &req, error err) {
+        Resp call(uint32 rpc_id, str service_name, str procedure_name, Req const &req, error err) {
             ClientBase &c = *this;
             Resp resp;
             CallData call_data = {
                 .client    = this,
                 .resp      = &resp,
                 .err       = &err,
+                .service_name = service_name,
+                .procedure_name = procedure_name,
                 .unmarshal = [](CallData *cd, io::Reader &in, error err) {
                     Resp *resp = (Resp*) cd->resp;
                     *resp = unmarshal<Resp>(in, err);
@@ -113,13 +117,15 @@ namespace serialrpc {
         }
 
         template <typename Resp>
-        Resp call(uint32 rpc_id, error err) {
+        Resp call(uint32 rpc_id, str service_name, str procedure_name, error err) {
             ClientBase &c = *this;
             Resp resp;
             CallData call_data = {
                 .client    = this,
                 .resp      = &resp,
                 .err       = &err,
+                .service_name = service_name,
+                .procedure_name = procedure_name,
                 .unmarshal = [](CallData *cd, io::Reader &in, error err) {
                     Resp *resp = (Resp*) cd->resp;
                     *resp = unmarshal<Resp>(in, err);
@@ -153,12 +159,14 @@ namespace serialrpc {
         }
 
         template <typename Req>
-        void call_void(uint32 rpc_id, Req const &req, error err) {
+        void call_void(uint32 rpc_id, str service_name, str procedure_name, Req const &req, error err) {
             ClientBase &c = *this;
             
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
+                .service_name = service_name,
+                .procedure_name = procedure_name,
             };
 
             {
@@ -187,12 +195,14 @@ namespace serialrpc {
             return;
         }
 
-        void call_void(uint32 rpc_id, error err) {
+        void call_void(uint32 rpc_id, str service_name, str procedure_name, error err) {
             ClientBase &c = *this;
             
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
+                .service_name = service_name,
+                .procedure_name = procedure_name,
             };
 
             {
@@ -224,11 +234,13 @@ namespace serialrpc {
         }
 
         template <typename T>
-        void subscribe(uint32 event_id, T const &req, error err) {
+        void subscribe(uint32 event_id, str service_name, str procedure_name, T const &req, error err) {
             ClientBase &c = *this;
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
+                .service_name = service_name,
+                .procedure_name = procedure_name,
             };
             {
                 sync::Lock lock(c.call_mtx);
@@ -259,11 +271,13 @@ namespace serialrpc {
             call_data.response_received.wait();
         }
 
-        void subscribe(uint32 event_id, error err) {
+        void subscribe(uint32 event_id, str service_name, str procedure_name, error err) {
              ClientBase &c = *this;
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
+                .service_name = service_name,
+                .procedure_name = procedure_name,
             };
             {
                 sync::Lock lock(c.call_mtx);
@@ -293,11 +307,13 @@ namespace serialrpc {
             call_data.response_received.wait();
         }
 
-        void unsubscribe(uint32 event_id, error err) {
+        void unsubscribe(uint32 event_id, str service_name, str procedure_name, error err) {
             ClientBase &c = *this;
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
+                .service_name = service_name,
+                .procedure_name = procedure_name,
             };
             {
                 sync::Lock lock(c.call_mtx);
@@ -326,7 +342,7 @@ namespace serialrpc {
         void start_unlocked(error err);
         void start_request(uint32 rpc_id, CallData *call_data, error err);
         void finish_request(error err);
-        void handle_error_response(error client_error, error err);
+        void handle_error_response(CallData const &call_data, error err);
         void input();
         void client_hello(error err);
         void fail(sync::Lock const&);

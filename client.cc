@@ -138,7 +138,7 @@ void ClientBase::finish_request(error err) {
     c.conn->flush(err);
 }
 
-void ClientBase::handle_error_response(error client_err, error err) {
+void ClientBase::handle_error_response(CallData const &call_data, error err) {
     ClientBase &c = *this;
     String text = read_chunked(*c.conn, err);
     if (err) {
@@ -146,7 +146,7 @@ void ClientBase::handle_error_response(error client_err, error err) {
         return;
     }
 
-    client_err(ErrReply(text));
+    (*call_data.err)(ErrReply(call_data.service_name, call_data.procedure_name, text));
 }
 
 void ClientBase::fail(sync::Lock const&) {
@@ -363,7 +363,7 @@ void ClientBase::handle_reply(ServerMessageType type, error err) {
     }
 
     if (type != ServerMessageType::Reply) {
-        call_data->client->handle_error_response(*call_data->err, err);
+        call_data->client->handle_error_response(*call_data, err);
     } else if (call_data->unmarshal) {
         call_data->unmarshal(call_data, *c.conn, err);
     }
