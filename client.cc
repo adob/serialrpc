@@ -30,7 +30,7 @@ static void print_line(byte b, io::ReaderWriter &conn, error err) {
             break;
         }
     }
-    fmt::printf("serialrpc raw log: %q\n", msg);
+    fmt::fprintf(os::stderr, "serialrpc raw log: %q\n", msg);
 }
 
 void ClientBase::start(error err) {
@@ -218,7 +218,7 @@ again:
         this->call_cond.wait(this->cond_mutex);
     }
 
-    print "serialrpc started";
+    // eprint "serialrpc started";
 
     if (c.state.load() == Failing) {
         err(*this->err);
@@ -337,9 +337,9 @@ void ClientBase::handle_log(error err) {
         return;
     }
     if (data[len(data) - 1] == '\n') {
-        fmt::printf("serialrpc log: %s", str(data));
+        fmt::fprintf(os::stderr, "serialrpc log: %s", str(data));
     } else {
-        fmt::printf("serialrpc log: %s\n", str(data));
+        fmt::fprintf(os::stderr, "serialrpc log: %s\n", str(data));
     }
     
 }
@@ -352,7 +352,7 @@ void ClientBase::handle_reply(ServerMessageType type, error err) {
     {
         sync::Lock lock(call_mtx);
         if (c.head == nil) {
-            print "unexpected reply: reqnum %v; respnum %v" % reqnum.load(), respnum.load();
+            eprint "unexpected reply: reqnum %v; respnum %v" % reqnum.load(), respnum.load();
             err("unexpected reply");
         }
         call_data = c.head;
@@ -406,7 +406,7 @@ again:
         return;
     }
     
-    print "serialrpc client: handshake completed";
+    eprint "serialrpc client: handshake completed";
 
     sync::Lock lock(cond_mutex);
 
