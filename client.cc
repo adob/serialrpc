@@ -406,7 +406,7 @@ again:
         return;
     }
     
-    eprint "serialrpc client: handshake completed";
+    //eprint "serialrpc client: handshake completed";
 
     sync::Lock lock(cond_mutex);
 
