@@ -8,6 +8,17 @@ get_filename_component(
 
 project(${CURRENT_DIRNAME} VERSION 0.0.0 LANGUAGES CXX)
 
+include(cmake/CPM.cmake)
+CPMUsePackageLock(package-lock.cmake)
+
+#CPMAddPackage("gh:adob/baselib#master")
+CPMAddPackage(
+  NAME baselib
+  GITHUB_REPOSITORY adob/baselib
+  VERSION 0.0.0
+  GIT_TAG c6ea2af91ee819a343e37c8f122ec350c065bb96
+)
+
 file(GLOB SOURCES 
     ${CMAKE_CURRENT_LIST_DIR}/*.cc
 )
