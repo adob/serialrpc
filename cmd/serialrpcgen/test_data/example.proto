@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+message Msg1 {
+    int32 field1 = 1;
+}
+
+enum Enum1 {
+    EnumField = 0;
+}
+
+message Msg2 {
+    enum EmbeddedEnum {
+        EnumField = 0;
+    }
+
+    int32 field1 = 1;
+    EmbeddedEnum field2 = 2;
+}

@@ -6,12 +6,11 @@ get_filename_component(
   NAME
 )
 
-project(${CURRENT_DIRNAME} VERSION 0.0.0 LANGUAGES CXX)
+project(serialrpc VERSION 0.0.0 LANGUAGES CXX)
 
 include(cmake/CPM.cmake)
 CPMUsePackageLock(package-lock.cmake)
 
-#CPMAddPackage("gh:adob/baselib#master")
 CPMAddPackage(
   NAME baselib
   GITHUB_REPOSITORY adob/baselib
@@ -57,3 +56,5 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC baselib::baselib)
+
+add_subdirectory(cmd/serialrpcgen)
