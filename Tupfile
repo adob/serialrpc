@@ -1,3 +1,2 @@
-#: foreach *.proto |> $HOME/buildtool.py build $HOME/cmd/serialrpcgen/serialrpcgen.cc && protoc --plugin=protoc-gen-serialrpc=$HOME/bin/serialrpcgen --serialrpc_out=. -I=. %B.proto |> %B.pb.h %B.pb.cc
 : foreach *.proto |> protoc --plugin=protoc-gen-serialrpc=$HOME/bin/serialrpcgen --serialrpc_out=. -I=. -I=$HOME/deps/amp-embedded-infra-lib/protobuf/echo_attributes %B.proto |> \
     %B.pb_client.h %B.pb_client.cc %B.pb_server.h %B.pb_server.cc %B.pb_msg.h %B.pb_msg.cc

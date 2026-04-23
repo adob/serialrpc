@@ -7,6 +7,13 @@
 using namespace lib;
 
 namespace examplepb {
+    RPCClient::RPCClient()
+        : ClientBase()
+        , sum_service(*this)
+        , can_service(*this)
+        , example_service(*this)
+    {}
+
     RPCClient::RPCClient(std::shared_ptr<lib::io::ReaderWriter> const &conn)
         : ClientBase(conn)
         , sum_service(*this)
@@ -19,18 +26,20 @@ namespace examplepb {
     {}
 
     SumResponse RPCClient::SumServiceStub::sum(SumRequest const &req, lib::error err) {
-        return this->client.call<SumRequest const&, SumResponse>(1, req, err);
+        return this->client.call<SumRequest const&, SumResponse>(1, ServiceName, "sum", req, err);
     }
 
     void RPCClient::SumServiceStub::subscribe_sum_events(SumEventsRequest const &req, std::function<void(SumEvent const&)> const &cb, lib::error err) {
-        sync::Lock lock(this->mtx);
-        this->sum_events_cb = cb;
-        this->client.subscribe(2, req, err);
+        {
+            sync::Lock lock(this->mtx);
+            this->sum_events_cb = cb;
+        }
+        this->client.subscribe(2, ServiceName, "sum_events", req, err);
     }
 
     void RPCClient::SumServiceStub::unsubscribe_sum_events(lib::error err) {
         sync::Lock lock(this->mtx);
-        this->client.unsubscribe(2, err);
+        this->client.unsubscribe(2, ServiceName, "sum_events", err);
         if (err) {
             return;
         }
@@ -49,7 +58,7 @@ namespace examplepb {
     {}
 
     void RPCClient::CANServiceStub::send(CANFrame const &req, lib::error err) {
-        this->client.call_void<CANFrame const&>(3, req, err);
+        this->client.call_void<CANFrame const&>(3, ServiceName, "send", req, err);
     }
 
     RPCClient::ExampleServiceStub::ExampleServiceStub(RPCClient &client)
@@ -57,7 +66,7 @@ namespace examplepb {
     {}
 
     void RPCClient::ExampleServiceStub::say_hello(lib::error err) {
-        this->client.call_void(4, err);
+        this->client.call_void(4, ServiceName, "say_hello", err);
     }
 
     void RPCClient::handle_event(lib::uint32 event_id, lib::error err) {

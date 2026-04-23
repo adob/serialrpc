@@ -202,7 +202,7 @@ namespace examplepb {
 
             switch (tag.field_num) {
             case SumRequestFieldNumber:
-                msg.sum_request = serialrpc::unmarshal<examplepb::SumRequest>(in, err, nesting-1);
+                msg.sum_request = serialrpc::unmarshal<SumRequest>(in, err, nesting-1);
                 break;
 
             case DataFieldNumber:

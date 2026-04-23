@@ -14,9 +14,13 @@ namespace examplepb {
     struct RPCServer;
 
     struct RPCClient : serialrpc::ClientBase {
+        explicit RPCClient();
+
         explicit RPCClient(std::shared_ptr<lib::io::ReaderWriter> const &conn);
 
         struct SumServiceStub {
+            static constexpr char ServiceName[] = "SumService";
+
             RPCClient& client;
 
             lib::sync::Mutex mtx;
@@ -35,6 +39,8 @@ namespace examplepb {
         } sum_service;
 
         struct CANServiceStub {
+            static constexpr char ServiceName[] = "CANService";
+
             RPCClient& client;
 
             lib::sync::Mutex mtx;
@@ -45,6 +51,8 @@ namespace examplepb {
         } can_service;
 
         struct ExampleServiceStub {
+            static constexpr char ServiceName[] = "ExampleService";
+
             RPCClient& client;
 
             lib::sync::Mutex mtx;

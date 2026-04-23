@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package example;
 
-import "EchoAttributes.proto";
+import "serialrpc.proto";
 
 message SumRequest {
     int32 left = 1;

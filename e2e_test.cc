@@ -2,7 +2,7 @@
 #include "lib/io/pipe.h"
 #include "lib/testing/testing.h"
 #include "lib/print.h"
-#include "serial/serial_listener.h"
+#include "lib/serial/serial_listener.h"
 #include "example.pb_msg.h"
 #include "example.pb_client.h"
 #include "example.pb_server.h"

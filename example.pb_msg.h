@@ -71,7 +71,7 @@ namespace examplepb {
 
         bool operator==(const Message2& other) const;
 
-        examplepb::SumRequest sum_request = {};
+        SumRequest sum_request = {};
 
         lib::InlineString<8> data = {};
 
