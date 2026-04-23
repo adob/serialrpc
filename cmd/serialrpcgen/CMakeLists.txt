@@ -11,22 +11,22 @@ get_filename_component(_serialrpc_parent_dir
   REALPATH
 )
 
-add_executable(serialrpcgen
+add_executable(serialrpcgen_plugin
   CppFormatter.cc
   EchoObjects.cc
   ProtoCEchoPlugin.cc
   serialrpc.pb.cc
-  serialrpcgen.cc
+  serialrpcgen_plugin.cc
 )
 
-target_compile_features(serialrpcgen PRIVATE cxx_std_23)
+target_compile_features(serialrpcgen_plugin PRIVATE cxx_std_23)
 
-target_include_directories(serialrpcgen PRIVATE
+target_include_directories(serialrpcgen_plugin PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}
   ${_serialrpc_parent_dir}
 )
 
-target_link_libraries(serialrpcgen PRIVATE
+target_link_libraries(serialrpcgen_plugin PRIVATE
   baselib::baselib
   protobuf::libprotobuf
   protobuf::libprotoc
