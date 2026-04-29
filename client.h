@@ -355,13 +355,14 @@ namespace serialrpc {
         void start_unlocked(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err);
         void start_request(uint32 rpc_id, CallData *call_data, error err);
         void finish_request(error err);
-        void handle_error_response(CallData const &call_data, error err);
         void input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client);
         void client_hello(std::span<Stub *const> service_infos, std::shared_ptr<Client> const &shared_client, error err);
         void read_services_def(std::span<Stub *const> service_infos, std::shared_ptr<Client> const &shared_client, error err);
         void handle_service_def(serialrpcpb::ServiceDef const &service_def, std::span<Stub *const> service_infos, std::shared_ptr<Client> const &shared_client, int offset, error err);
         void fail(sync::Lock const&);
-        void handle_reply(ServerMessageType type, error);
+        Client::CallData *pop_call_data();
+        void handle_reply(error err);
+        void handle_chunked_error_reply(error err);
         void handle_log(error err);
         void handle_event(uint32 event_id, error err);
 

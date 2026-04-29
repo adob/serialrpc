@@ -3,10 +3,12 @@
 #include "lib/testing/testing.h"
 #include "lib/print.h"
 #include "lib/serial/serial_listener.h"
+#include "lib/varint/varint.h"
 
 #include "generated/example.pb_msg.h"
 #include "generated/example.pb_client.h"
 #include "generated/example.pb_server.h"
+#include "generated/serialrpc_protocol.pb_msg.h"
 
 #include <memory>
 
@@ -125,6 +127,57 @@ struct SerialConn : serial::Conn {
         return fwd.write(data, err);
     }
 } ;
+
+void test_bare_unknown_reply_fails_connection_and_wakes_call(testing::T &t) {
+    auto [client_conn, server_side] = make_pipe();
+
+    sync::go server = [&] {
+        byte hello = server_side->read_byte(error::panic);
+        if (hello != byte(ClientHello)) {
+            panic("bad client hello");
+        }
+
+        server_side->write_byte(byte(ServerHello), error::panic);
+        write_tag(*server_side, serialrpcpb::ServerHello::ProtocolVersionFieldNumber, Tag::VarInt, error::panic);
+        varint::write_uint32(*server_side, ProtocolVersion, error::panic);
+
+        serialrpcpb::ServiceDef service_def = to_service_def<examplepb::SumServiceBase>();
+        Stack stack;
+        marshal_field(*server_side, serialrpcpb::ServerHello::ServicesFieldNumber, service_def, error::panic, MaxNesting, stack);
+        server_side->write_byte(byte(Tag::End), error::panic);
+        server_side->flush(error::panic);
+
+        uint32 rpc_id = varint::read_uint32(*server_side, error::panic);
+        if (rpc_id != 1) {
+            panic("bad rpc id");
+        }
+        (void) unmarshal<examplepb::SumRequest>(*server_side, error::panic);
+
+        server_side->write_byte(byte(ServerMessageType::Unknown), error::panic);
+        server_side->flush(error::panic);
+    };
+
+    examplepb::SumServiceStub sum_stub;
+    std::shared_ptr<Client> client = serialrpc::connect(client_conn, {&sum_stub}, error::panic);
+
+    ErrorRecorder call_err;
+    sync::go call = [&] {
+        error call_error = call_err;
+        (void) sum_stub.sum(examplepb::SumRequest{.left = 10, .right = 20}, call_error);
+    };
+
+    call.join();
+
+    ErrorRecorder session_err;
+    client->wait(session_err);
+
+    if (!call_err) {
+        t.errorf("sum() did not receive an error for bare Unknown reply");
+    }
+    if (!session_err) {
+        t.errorf("client session did not fail after bare Unknown reply");
+    }
+}
 
 void test_e2e(testing::T &t) {
     auto [client_conn, server_side] = make_pipe();

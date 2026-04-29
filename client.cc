@@ -15,9 +15,6 @@
 using namespace lib;
 using namespace serialrpc;
 
-static sync::atomic<int> reqnum = 0;
-static sync::atomic<int> respnum = 0;
-
 static void print_line(byte b, io::ReaderWriter &conn, error err) {
     String msg;
     msg += b;
@@ -142,19 +139,7 @@ void Client::start_request(uint32 rpc_id, CallData *call_data, error err) {
 
 void Client::finish_request(error err) {
     Client &c = *this;
-    reqnum.add(1);
     c.conn->flush(err);
-}
-
-void Client::handle_error_response(CallData const &call_data, error err) {
-    Client &c = *this;
-    String text = read_chunked(*c.conn, err);
-    if (err) {
-        //c.fail(sync::Lock(call_mtx));
-        return;
-    }
-
-    (*call_data.err)(ErrReply(call_data.service_name, call_data.procedure_name, text));
 }
 
 void Client::fail(sync::Lock const&) {
@@ -271,7 +256,7 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
         this->err = nil;
     };
 
-    this->client_hello(stubs, shared_client, err);
+    c.client_hello(stubs, shared_client, err);
     if (err) {
         return;
     }
@@ -285,15 +270,30 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
 
         switch (type) {
         case ServerMessageType::Reply:
-        case ServerMessageType::ErrorReply:
-        case ServerMessageType::Unknown:
-        case ServerMessageType::TooBig:
-        case ServerMessageType::BadMessage:
-            handle_reply(type, err);
+            c.handle_reply(err);
             if (err) {
                 return;
             }
             continue;
+
+        case ServerMessageType::ErrorReply:
+            c.handle_chunked_error_reply(err);
+            if (err) {
+                return;
+            }
+            continue;
+
+        case ServerMessageType::Unknown:
+            err(ErrUnknownMethod());
+            return;
+
+        case ServerMessageType::TooBig:
+            err(ErrRequestTooBig());
+            return;
+
+        case ServerMessageType::BadMessage:
+            err(ErrBadMessage());
+            return;
 
         case Event: {
             uint32 event_id = varint::read_uint32(*c.conn, err);
@@ -363,29 +363,51 @@ void Client::handle_log(error err) {
     }
 }
 
-void Client::handle_reply(ServerMessageType type, error err) {
+Client::CallData *Client::pop_call_data() {
     Client &c = *this;
-    // pop call data
-    CallData *call_data;
-    respnum.add(1);
-    {
-        sync::Lock lock(call_mtx);
-        if (c.head == nil) {
-            err("unexpected reply");
-            return;
-        }
-        call_data = c.head;
-        if (c.head == c.tail) {
-            c.tail = nil;
-        }
-        c.head = c.head->next;
+    sync::Lock lock(call_mtx);
+    if (c.head == nil) {
+        return nil;
+    }
+    CallData *call_data = c.head;
+    if (c.head == c.tail) {
+        c.tail = nil;
+    }
+    c.head = c.head->next;
+    return call_data;
+}
+
+void Client::handle_reply(error err) {
+    Client &c = *this;
+
+    CallData *call_data = c.pop_call_data();
+    if (call_data == nil) {
+        err("unexpected reply");
+        return;
     }
 
-    if (type != ServerMessageType::Reply) {
-        call_data->client->handle_error_response(*call_data, err);
-    } else if (call_data->unmarshal) {
+    if (call_data->unmarshal) {
         call_data->unmarshal(call_data, *c.conn, err);
     }
+
+    call_data->response_received.notify();
+}
+
+void Client::handle_chunked_error_reply(error err) {
+    Client &c = *this;
+
+    CallData *call_data = c.pop_call_data();
+    if (call_data == nil) {
+        err("unexpected reply");
+        return;
+    }
+
+    String text = read_chunked(*c.conn, err);
+    if (err) {
+        text += " (failed to read error message)";
+    }
+
+    (*call_data->err)(ErrReply(call_data->service_name, call_data->procedure_name, text));
 
     call_data->response_received.notify();
 }
