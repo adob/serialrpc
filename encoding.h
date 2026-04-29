@@ -9,6 +9,8 @@
 namespace serialrpc {
     using namespace lib;
 
+    const int MaxStringSize = 16 * 1024;
+
     struct Archiver {
         io::Reader &out;
         error &err;

@@ -1,5 +1,6 @@
 #include "lib/testing/testing.h"
 #include "lib/io/io.h"
+#include "lib/varint/varint.h"
 #include "lib/print.h"
 
 #include "encoding.h"
@@ -89,5 +90,28 @@ void test_encode_decode_empty_submessage(T &t) {
 
     if (len(data) != 1  ) {
         t.errorf("len(data) = %v; want 1; data = 0x% x", len(data), data);
+    }
+}
+
+void test_decode_skips_unknown_nested_message(T &t) {
+    io::Buffer buffer;
+
+    write_tag(buffer, 99, Tag::Start, error::panic);
+    write_tag(buffer, examplepb::SumRequest::LeftFieldNumber, Tag::VarInt, error::panic);
+    varint::write_sint32(buffer, 123, error::panic);
+    buffer.write_byte(Tag::End, error::panic);
+
+    write_tag(buffer, examplepb::SumRequest::RightFieldNumber, Tag::VarInt, error::panic);
+    varint::write_sint32(buffer, 42, error::panic);
+    buffer.write_byte(Tag::End, error::panic);
+
+    ErrorRecorder err;
+    examplepb::SumRequest out = unmarshal<examplepb::SumRequest>(buffer, err);
+
+    if (err) {
+        t.errorf("unmarshal() got error %v; want nil", err);
+    }
+    if (out.right != 42) {
+        t.errorf("unmarshal() got right %v; want 42", out.right);
     }
 }

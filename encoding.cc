@@ -74,15 +74,20 @@ void serialrpc::skip(io::Reader &in, Tag::Type type, error err, int nesting) {
     }
 
     case Tag::Start:
+        if (nesting < 0) {
+            err("excessive nesting");
+            return;
+        }
         for (;;) {
             Tag tag = serialrpc::read_tag(in, err);
             if (err) {
                 return;
             }
-            if (nesting < 0) {
-                err("excessive nesting");
+
+            if (tag.type == Tag::End) {
                 return;
             }
+            
             skip(in, tag.type, err, nesting-1);
             if (err) {
                 return;
@@ -391,8 +396,12 @@ lib::String serialrpc::read_chunked(io::Reader &in, error err) {
             break;
         }
 
+        if (len(s) + n > MaxStringSize) {
+            err("chunked message too big");
+            return s;
+        }
+
         buf b = s.expand(n);
-        // print "buffer", len(b);
         io::read_full(in, b, err);
         if (err) {
             return s;
@@ -410,6 +419,7 @@ size serialrpc::unmarshal_bytes(io::Reader &in, buf bytes, error err) {
 
     if (n > len(bytes)) {
         err("data too big");
+        return 0;
     }
 
     io::read_full(in, bytes[0, n], err);

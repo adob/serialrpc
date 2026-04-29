@@ -100,7 +100,7 @@ namespace serialrpc {
         void handle_request(uint32 rpc_id, serial::Conn &conn, error err) override {
             Server &s = *this;
             printf("server: handle_request: rpc_id=%d\n", rpc_id);
-            if (rpc_id > len(s.dispatch_table)) {
+            if (rpc_id >= len(s.dispatch_table)) {
                 send_code(conn, ServerMessageType::Unknown, err);
                 return;
             }

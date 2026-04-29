@@ -27,11 +27,11 @@ namespace examplepb {
 
     void SumServiceStub::unsubscribe_sum_events(lib::error err) {
         uint32 event_id = 1 + this->rpc_offset;
-        this->client->unregister_event_callback(event_id);
         this->client->unsubscribe(event_id, ServiceName, "sum_events", err);
         if (err) {
             return;
         }
+        this->client->unregister_event_callback(event_id);
         this->sum_events_cb = nil;
     }
 
@@ -76,11 +76,11 @@ namespace examplepb {
 
     void ExampleServiceStub::unsubscribe_example_event1(lib::error err) {
         uint32 event_id = 1 + this->rpc_offset;
-        this->client->unregister_event_callback(event_id);
         this->client->unsubscribe(event_id, ServiceName, "example_event1", err);
         if (err) {
             return;
         }
+        this->client->unregister_event_callback(event_id);
         this->example_event1_cb = nil;
     }
 
@@ -102,11 +102,11 @@ namespace examplepb {
 
     void ExampleServiceStub::unsubscribe_example_event2(lib::error err) {
         uint32 event_id = 2 + this->rpc_offset;
-        this->client->unregister_event_callback(event_id);
         this->client->unsubscribe(event_id, ServiceName, "example_event2", err);
         if (err) {
             return;
         }
+        this->client->unregister_event_callback(event_id);
         this->example_event2_cb = nil;
     }
 
@@ -129,11 +129,11 @@ namespace examplepb {
 
     void ExampleServiceStub::unsubscribe_example_event3(lib::error err) {
         uint32 event_id = 3 + this->rpc_offset;
-        this->client->unregister_event_callback(event_id);
         this->client->unsubscribe(event_id, ServiceName, "example_event3", err);
         if (err) {
             return;
         }
+        this->client->unregister_event_callback(event_id);
         this->example_event3_cb = nil;
     }
 

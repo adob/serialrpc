@@ -37,12 +37,14 @@ static void print_line(byte b, io::ReaderWriter &conn, error err) {
 }
 
 void serialrpc::Client::register_event_callback(uint32 event_id, std::function<void(lib::io::ReaderWriter &, error)> cb) {
-  Client &c = *this;
-  c.event_callbacks[event_id] = cb;
+    Client &c = *this;
+    sync::Lock lock(c.event_callbacks_mtx);
+    c.event_callbacks[event_id] = cb;
 }
 void serialrpc::Client::unregister_event_callback(uint32 event_id) {
-  Client &c = *this;
-  c.event_callbacks.erase(event_id);
+    Client &c = *this;
+    sync::Lock lock(c.event_callbacks_mtx);
+    c.event_callbacks.erase(event_id);
 }
 
 void Client::start(std::span<Stub *const> stubs,
@@ -175,12 +177,18 @@ again:
 
 void serialrpc::Client::handle_event(uint32 event_id, error err) {
     Client &c = *this;
-    auto it = c.event_callbacks.find(event_id);
-    if (it == c.event_callbacks.end()) {
-        return err("got event with unknown event_id %v", event_id);
+
+    std::function<void(lib::io::ReaderWriter &, error)> cb;
+    {
+        sync::Lock lock(c.event_callbacks_mtx);
+        auto it = c.event_callbacks.find(event_id);
+        if (it == c.event_callbacks.end()) {
+            return err("got event with unknown event_id %v", event_id);
+        }
+        cb = it->second;
     }
 
-    it->second(*c.conn, err);
+    cb(*c.conn, err);
 }
 
 void Client::start_unlocked(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err) {
@@ -282,6 +290,9 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
         case ServerMessageType::TooBig:
         case ServerMessageType::BadMessage:
             handle_reply(type, err);
+            if (err) {
+                return;
+            }
             continue;
 
         case Event: {
@@ -331,6 +342,11 @@ void Client::handle_log(error err) {
         return;
     }
 
+    if (nbytes > MaxStringSize) {
+        err("log message too big");
+        return;
+    }
+
     Buffer data(nbytes);
     io::read_full(*c.conn, data, err);
     if (err) {
@@ -356,6 +372,7 @@ void Client::handle_reply(ServerMessageType type, error err) {
         sync::Lock lock(call_mtx);
         if (c.head == nil) {
             err("unexpected reply");
+            return;
         }
         call_data = c.head;
         if (c.head == c.tail) {

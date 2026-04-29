@@ -37,6 +37,7 @@ namespace serialrpc {
 
     struct Client {
         std::shared_ptr<lib::io::ReaderWriter> conn;
+        sync::Mutex event_callbacks_mtx;
         boost::unordered_flat_map<uint32, std::function<void(lib::io::ReaderWriter &, error)>> event_callbacks;
 
         Client() : conn(nil) {}

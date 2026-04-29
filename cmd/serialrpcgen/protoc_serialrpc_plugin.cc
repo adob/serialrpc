@@ -2676,11 +2676,10 @@ switch (methodId)
                         google::protobuf::io::Printer printer(&stream, options);
                         
                         printer.Print("uint32 event_id = $id$ + this->rpc_offset;\n", "id", SimpleItoa(id));
-                        printer.Print("this->client->unregister_event_callback(event_id);\n");
-                        
                         printer.Print("this->client->unsubscribe(event_id, ServiceName, \"$procedure_name$\", err);\n", 
                                 "procedure_name", method.name);
                         printer.Print("if (err) {\n    return;\n}\n");
+                        printer.Print("this->client->unregister_event_callback(event_id);\n");
                         printer.Print("this->$name$_cb = nil;\n", "name", method.name);
                         
                     }

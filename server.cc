@@ -209,10 +209,10 @@ void serialrpc::send_reply_void(serial::Conn &conn, error err) {
 }
 void serialrpc::ServerBase::send_goodbye(error err) {
     ServerBase &s = *this;
-    sync::Lock lock(s.conn->write_mtx);
     if (s.conn == nil) {
         return;
     }
+    sync::Lock lock(s.conn->write_mtx);
     s.conn->write_byte(byte(ServerGoodbye), err);
     if (err) {
         return;
