@@ -179,8 +179,16 @@ float64 serialrpc::unmarshal<float64>(io::Reader &in, error err, int /*nesting*/
 
 
 template <>
-bool serialrpc::unmarshal<bool>(io::Reader &, error, int /*nesting*/) {
-    return true;
+bool serialrpc::unmarshal<bool>(io::Reader &in, error err, int /*nesting*/) {
+    byte b = in.read_byte(err);
+    if (err) {
+        return false;
+    }
+    if (b != 0 && b != 1) {
+        err("serialrpc: invalid bool value %v", b);
+        return false;
+    }
+    return b != 0;
 }
 
 template <>
@@ -301,18 +309,12 @@ void serialrpc::marshal_field(io::Writer &out, int32 field_number, bool val, err
         return;
     }
 
-    for (uint32 tag : stack) {
-        write_tag(out, tag, Tag::Start, err);
-        if (err) {
-            return;
-        }
-    }
-    stack.clear();
-
-    write_tag(out, field_number, Tag::Len, err);
+    write_tags(out, field_number, Tag::VarInt, stack, err);
     if (err) {
         return;
     }
+
+    out.write_byte(1, err);
 }
 
 // void marshal_field(io::Writer &out, int32 field_number, uint64 val, error err, int nesting, Stack &stack);

@@ -115,3 +115,22 @@ void test_decode_skips_unknown_nested_message(T &t) {
         t.errorf("unmarshal() got right %v; want 42", out.right);
     }
 }
+
+void test_decode_skips_unknown_bool_field(T &t) {
+    io::Buffer buffer;
+    Stack stack;
+
+    marshal_field(buffer, 99, true, error::panic, MaxNesting, stack);
+    marshal_field(buffer, examplepb::SumRequest::RightFieldNumber, int32(42), error::panic, MaxNesting, stack);
+    buffer.write_byte(Tag::End, error::panic);
+
+    ErrorRecorder err;
+    examplepb::SumRequest out = unmarshal<examplepb::SumRequest>(buffer, err);
+
+    if (err) {
+        t.errorf("unmarshal() got error %v; want nil", err);
+    }
+    if (out.right != 42) {
+        t.errorf("unmarshal() got right %v; want 42", out.right);
+    }
+}
