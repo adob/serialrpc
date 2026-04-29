@@ -90,10 +90,13 @@ again:
         case Closed:
             return;
             
-        case Failing:
+        case Failing: {
+            sync::Lock cond_lock(c.cond_mutex);
             err(*this->err);
             this->state.store(Failed);
+            this->call_cond.signal();
             return;
+        }
 
         case Failed:
             err("failed");
@@ -121,6 +124,11 @@ again:
 void Client::start_request(uint32 rpc_id, CallData *call_data, error err) {
     Client &c = *this;
 
+    c.check_running(err);
+    if (err) {
+        return;
+    }
+
     // write rpc_id
     varint::write_uint32(*c.conn, rpc_id, err);
     if (err) {
@@ -128,6 +136,7 @@ void Client::start_request(uint32 rpc_id, CallData *call_data, error err) {
     }
 
     // push call data
+    sync::Lock lock(c.data_mtx);
     if (c.head == nil) {
         c.head = call_data;
     }
@@ -137,6 +146,43 @@ void Client::start_request(uint32 rpc_id, CallData *call_data, error err) {
     c.tail = call_data;
 }
 
+void Client::check_running(error err) {
+    Client &c = *this;
+
+again:
+    State state = c.state.load();
+    switch (state) {
+    case Running:
+        return;
+
+    case New:
+    case Starting:
+        err("not running");
+        return;
+
+    case Closed:
+        err(ErrClosed());
+        return;
+
+    case Failing: {
+        sync::Lock lock(c.cond_mutex);
+        if (c.state.load() != Failing) {
+            goto again;
+        }
+        if (c.err != nil) {
+            err(*c.err);
+        } else {
+            err(ErrClosed());
+        }
+        return;
+    }
+
+    case Failed:
+        err("failed");
+        return;
+    }
+}
+
 void Client::finish_request(error err) {
     Client &c = *this;
     c.conn->flush(err);
@@ -144,8 +190,8 @@ void Client::finish_request(error err) {
 
 void Client::fail(sync::Lock const&) {
     Client &c = *this;
-    c.head = nil;
-    c.tail = nil;
+    ErrClosed e;
+    c.fail_pending_calls(e);
 
 again:
     State state = c.state.load();
@@ -237,18 +283,18 @@ again:
 void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client) {
     Client &c = *this;
     ErrorFunc err = [&](Error &e){
-        sync::Lock lock(cond_mutex);
+        {
+            sync::Lock call_lock(call_mtx);
+            sync::Lock lock(cond_mutex);
 
-        this->err = &e;
-        this->state.store(Failing);
-        this->call_cond.signal();
+            this->err = &e;
+            this->state.store(Failing);
+            this->call_cond.signal();
 
-        while (c.head != nil) {
-            (*c.head->err)(e);
-            c.head->response_received.notify();
-            c.head = c.head->next;
+            c.fail_pending_calls(e);
         }
 
+        sync::Lock lock(cond_mutex);
         while (this->state.load() != Failed) {
             this->call_cond.wait(cond_mutex);
         }
@@ -319,6 +365,9 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
             return;
             
         case ServerMessageType::ServerGoodbye:
+            if (c.state.load() != Closed) {
+                err(ErrUnsolicitedServerGoodbye());
+            }
             return;
         
         case ServerMessageType::ServerHello:
@@ -365,7 +414,7 @@ void Client::handle_log(error err) {
 
 Client::CallData *Client::pop_call_data() {
     Client &c = *this;
-    sync::Lock lock(call_mtx);
+    sync::Lock lock(c.data_mtx);
     if (c.head == nil) {
         return nil;
     }
@@ -375,6 +424,18 @@ Client::CallData *Client::pop_call_data() {
     }
     c.head = c.head->next;
     return call_data;
+}
+
+void Client::fail_pending_calls(Error &e) {
+    Client &c = *this;
+    for (;;) {
+        CallData *call_data = c.pop_call_data();
+        if (call_data == nil) {
+            return;
+        }
+        (*call_data->err)(e);
+        call_data->response_received.notify();
+    }
 }
 
 void Client::handle_reply(error err) {

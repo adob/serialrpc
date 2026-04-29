@@ -82,7 +82,8 @@ namespace serialrpc {
         
         sync::atomic<State> state = New;
 
-        sync::Mutex call_mtx;
+        sync::Mutex call_mtx;  // held during calls
+        sync::Mutex data_mtx;  // held when modifying call data list
         sync::Mutex cond_mutex;
         sync::Cond  call_cond;
         sync::go input_worker;
@@ -353,6 +354,7 @@ namespace serialrpc {
       protected:
         void start(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err);
         void start_unlocked(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err);
+        void check_running(error err);
         void start_request(uint32 rpc_id, CallData *call_data, error err);
         void finish_request(error err);
         void input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client);
@@ -361,6 +363,7 @@ namespace serialrpc {
         void handle_service_def(serialrpcpb::ServiceDef const &service_def, std::span<Stub *const> service_infos, std::shared_ptr<Client> const &shared_client, int offset, error err);
         void fail(sync::Lock const&);
         Client::CallData *pop_call_data();
+        void fail_pending_calls(Error &e);
         void handle_reply(error err);
         void handle_chunked_error_reply(error err);
         void handle_log(error err);

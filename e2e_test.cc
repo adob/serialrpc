@@ -3,6 +3,8 @@
 #include "lib/testing/testing.h"
 #include "lib/print.h"
 #include "lib/serial/serial_listener.h"
+#include "lib/sync/lock.h"
+#include "lib/time/time.h"
 #include "lib/varint/varint.h"
 
 #include "generated/example.pb_msg.h"
@@ -25,6 +27,11 @@ struct PipeEnd : io::ReaderWriter {
 
     virtual size direct_write(str data, error err) override {
         return this->w->direct_write(data, err);
+    }
+
+    void close(error err) override {
+        this->r->close(err);
+        this->w->close(err);
     }
 } ;
 
@@ -78,6 +85,40 @@ struct Summer : examplepb::SumServiceBase {
             this->sum_event_callback(examplepb::SumEvent{.event = i});
         }
     }
+} ;
+
+struct BlockingSummer : examplepb::SumServiceBase {
+    sync::Mutex mtx;
+    sync::Cond cond;
+    bool request_received = false;
+    bool released = false;
+
+    examplepb::SumResponse sum(examplepb::SumRequest const &, error) override {
+        sync::Lock lock(mtx);
+        request_received = true;
+        cond.broadcast();
+        while (!released) {
+            cond.wait(mtx);
+        }
+        return {};
+    }
+
+    void wait_for_request() {
+        sync::Lock lock(mtx);
+        while (!request_received) {
+            cond.wait(mtx);
+        }
+    }
+
+    void release() {
+        sync::Lock lock(mtx);
+        released = true;
+        cond.broadcast();
+    }
+
+    void subscribe_sum_events(examplepb::SumEventsRequest const &, std::function<void(examplepb::SumEvent const &)> const &, error) override {}
+
+    void unsubscribe_sum_events(lib::error) override {}
 } ;
 
 struct CANService : examplepb::CANServiceBase {
@@ -176,6 +217,153 @@ void test_bare_unknown_reply_fails_connection_and_wakes_call(testing::T &t) {
     }
     if (!session_err) {
         t.errorf("client session did not fail after bare Unknown reply");
+    }
+}
+
+void test_call_mtx_deadlock(testing::T &t) {
+    auto [client_conn, server_side] = make_pipe();
+    SerialConn server_conn(*server_side);
+
+    Summer summer;
+    serialrpc::Server server(summer);
+
+    sync::go server_thread = [&] {
+        server.accept(server_conn, error::panic);
+    };
+
+    examplepb::SumServiceStub sum_stub;
+    std::shared_ptr<Client> client = serialrpc::connect(client_conn, {&sum_stub}, error::panic);
+
+    sync::atomic<bool> call_done = false;
+    ErrorRecorder call_err;
+    sync::go call = [&] {
+        (void) sum_stub.sum(examplepb::SumRequest{.left = 10, .right = 20}, call_err);
+        call_done.store(true);
+    };
+
+    ErrorRecorder close_err;
+    sync::go close_thread = [&] {
+        client->close(close_err);
+    };
+
+    close_thread.join();
+    call.join();
+
+    server_thread.join();
+
+    if (close_err) {
+        t.errorf("close() got error %v; want nil", close_err);
+    }
+    if (call_err) {
+        t.errorf("call got error %v; want nil", call_err);
+    }
+}
+ 
+void test_unsolicited_server_goodbye_wakes_pending_call(testing::T &t) {
+    auto [client_conn, server_side] = make_pipe();
+    SerialConn server_conn(*server_side);
+
+    BlockingSummer summer;
+    serialrpc::Server server(summer);
+
+    sync::go server_thread = [&] {
+        server.accept(server_conn, error::ignore);
+    };
+
+    examplepb::SumServiceStub sum_stub;
+    std::shared_ptr<Client> client = serialrpc::connect(client_conn, {&sum_stub}, error::panic);
+
+    sync::atomic<bool> call_done = false;
+    ErrorRecorder call_err;
+    sync::go call = [&] {
+        (void) sum_stub.sum(examplepb::SumRequest{.left = 10, .right = 20}, call_err);
+        call_done.store(true);
+    };
+
+    summer.wait_for_request();
+
+    server.send_goodbye(error::panic);
+    call.join();
+
+    summer.release();
+    server_side->close(error::ignore);
+    server_thread.join();
+
+    if (!call_err) {
+        t.errorf("pending call did not receive an error after unsolicited ServerGoodbye");
+    }
+}
+
+void test_unsolicited_server_goodbye_without_pending_calls_fails_session(testing::T &t) {
+    auto [client_conn, server_side] = make_pipe();
+    SerialConn server_conn(*server_side);
+
+    Summer summer;
+    serialrpc::Server server(summer);
+
+    sync::go server_thread = [&] {
+        server.accept(server_conn, error::ignore);
+    };
+
+    examplepb::SumServiceStub sum_stub;
+    std::shared_ptr<Client> client = serialrpc::connect(client_conn, {&sum_stub}, error::panic);
+
+    server.send_goodbye(error::panic);
+
+    ErrorRecorder session_err;
+    client->wait(session_err);
+
+    server_side->close(error::ignore);
+    server_thread.join();
+
+    if (!session_err) {
+        t.errorf("client session did not receive an error after unsolicited ServerGoodbye");
+    } else if (!session_err.is<ErrUnsolicitedServerGoodbye>()) {
+        t.errorf("client session got error %v after unsolicited ServerGoodbye; want ErrUnsolicitedServerGoodbye", session_err);
+    }
+}
+
+void test_call_after_server_goodbye_fails_without_hanging(testing::T &t) {
+    auto [client_conn, server_side] = make_pipe();
+    SerialConn server_conn(*server_side);
+
+    Summer summer;
+    serialrpc::Server server(summer);
+
+    sync::go server_thread = [&] {
+        server.accept(server_conn, error::ignore);
+    };
+
+    auto sum_stub = std::make_shared<examplepb::SumServiceStub>();
+    std::shared_ptr<Client> client = serialrpc::connect(client_conn, {sum_stub.get()}, error::panic);
+
+    server.send_goodbye(error::panic);
+    client->wait(error::ignore);
+
+    sync::atomic<bool> call_done = false;
+    auto call_err = std::make_shared<ErrorRecorder>();
+    sync::go call = [sum_stub, call_err, &call_done] {
+        (void) sum_stub->sum(examplepb::SumRequest{.left = 10, .right = 20}, *call_err);
+        call_done.store(true);
+    };
+
+    for (int i = 0; i < 100 && !call_done.load(); i++) {
+        time::sleep(time::millisecond);
+    }
+
+    server_side->close(error::ignore);
+    server_thread.join();
+
+    if (call_done.load()) {
+        call.join();
+    } else {
+        call.detach();
+        t.errorf("call made after ServerGoodbye did not return");
+        return;
+    }
+
+    if (!*call_err) {
+        t.errorf("call made after ServerGoodbye did not receive an error");
     }
 }
 

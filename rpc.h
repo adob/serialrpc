@@ -45,5 +45,7 @@ namespace serialrpc {
     struct ErrResponseTooBig : ErrorBase<ErrResponseTooBig, "serialrpc request too big"> {};
     struct ErrBadMessage     : ErrorBase<ErrBadMessage, "serialrpc bad message"> {};
     struct ErrFatal          : ErrorBase<ErrFatal, "serialrpc fatal error"> {};
+    struct ErrClosed         : ErrorBase<ErrClosed, "serialrpc connection closed"> {};
+    struct ErrUnsolicitedServerGoodbye : ErrorBase<ErrUnsolicitedServerGoodbye, "serialrpc unsolicited server goodbye"> {};
     struct ErrCorruption     : ErrorBase<ErrCorruption, "serialrpc I/O corruption"> {};
 }
