@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package serialrpc;
+
+import "serialrpc.proto";
+
+message ServiceDef {
+    bytes uuid = 1 [(bytes_size) = 16];
+    int32 major_version = 2;
+    int32 minor_version = 3;
+    int32 num_endpoints = 4;
+}
+
+message ServerHello {
+  uint32 protocol_version = 1;
+  repeated ServiceDef services = 2;
+}

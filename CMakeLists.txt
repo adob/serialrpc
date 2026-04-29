@@ -8,6 +8,8 @@ get_filename_component(
 
 project(serialrpc VERSION 0.0.0 LANGUAGES CXX)
 
+include(CTest)
+
 include(cmake/CPM.cmake)
 CPMUsePackageLock(package-lock.cmake)
 
@@ -15,7 +17,7 @@ CPMAddPackage(
   NAME baselib
   GITHUB_REPOSITORY adob/baselib
   VERSION 0.0.0
-  GIT_TAG c6ea2af91ee819a343e37c8f122ec350c065bb96
+  GIT_TAG 6a9ae65741b139632811e40b40f798e8e1f86ad9
 )
 
 file(GLOB SOURCES 
@@ -57,4 +59,79 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC baselib::baselib)
 
+set(_serialrpc_root_dir ${CMAKE_CURRENT_LIST_DIR})
 add_subdirectory(cmd/serialrpcgen)
+
+# Find protoc (protobuf is loaded by cmd/serialrpcgen)
+if(TARGET protobuf::protoc)
+  set(_protoc_exe $<TARGET_FILE:protobuf::protoc>)
+else()
+  find_program(_protoc_exe NAMES protoc REQUIRED)
+endif()
+
+# Generate serialrpc_protocol files required by the library
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/generated)
+add_custom_command(
+  OUTPUT
+    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.cc
+    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.h
+    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_client.cc
+    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_client.h
+    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_server.cc
+    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_server.h
+  COMMAND ${_protoc_exe}
+    --plugin=protoc-gen-serialrpc=$<TARGET_FILE:serialrpcgen_plugin>
+    --serialrpc_out=${CMAKE_CURRENT_LIST_DIR}/generated
+    -I ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
+  DEPENDS
+    ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
+    serialrpcgen_plugin
+  COMMENT "Generating serialrpc_protocol.pb_*.cc/h"
+)
+
+target_sources(${PROJECT_NAME} PRIVATE
+  ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.cc
+)
+
+if(BUILD_TESTING)
+  add_custom_command(
+    OUTPUT
+      ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_msg.cc
+      ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_msg.h
+      ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_client.cc
+      ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_client.h
+      ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_server.cc
+      ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_server.h
+    COMMAND ${_protoc_exe}
+      --plugin=protoc-gen-serialrpc=$<TARGET_FILE:serialrpcgen_plugin>
+      --serialrpc_out=${CMAKE_CURRENT_LIST_DIR}/generated
+      -I ${CMAKE_CURRENT_LIST_DIR}
+      ${CMAKE_CURRENT_LIST_DIR}/example.proto
+    DEPENDS
+      ${CMAKE_CURRENT_LIST_DIR}/example.proto
+      serialrpcgen_plugin
+    COMMENT "Generating example.pb_*.cc/h"
+  )
+
+  add_executable(${PROJECT_NAME}_tests
+    ${CMAKE_CURRENT_LIST_DIR}/encoding_test.cc
+    ${CMAKE_CURRENT_LIST_DIR}/e2e_test.cc
+    ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_msg.cc
+    ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_client.cc
+    ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_server.cc
+  )
+
+  target_compile_features(${PROJECT_NAME}_tests PRIVATE cxx_std_23)
+  target_include_directories(${PROJECT_NAME}_tests PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/generated
+  )
+
+  target_link_libraries(${PROJECT_NAME}_tests PRIVATE
+    ${PROJECT_NAME}::${PROJECT_NAME}
+    baselib::test_main
+  )
+
+  add_test(NAME ${PROJECT_NAME}_tests COMMAND ${PROJECT_NAME}_tests)
+  set_tests_properties(${PROJECT_NAME}_tests PROPERTIES TIMEOUT 30)
+endif()

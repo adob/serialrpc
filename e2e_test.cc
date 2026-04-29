@@ -3,9 +3,10 @@
 #include "lib/testing/testing.h"
 #include "lib/print.h"
 #include "lib/serial/serial_listener.h"
-#include "example.pb_msg.h"
-#include "example.pb_client.h"
-#include "example.pb_server.h"
+
+#include "generated/example.pb_msg.h"
+#include "generated/example.pb_client.h"
+#include "generated/example.pb_server.h"
 
 #include <memory>
 
@@ -46,44 +47,69 @@ PipePair make_pipe() {
     return p;
 }
 
-struct Summer : examplepb::SumService {
-    examplepb::RPCServer *server = nil;
+struct Summer : examplepb::SumServiceBase {
+    std::function<void(examplepb::SumEvent const &)> sum_event_callback;;
 
     examplepb::SumResponse sum(examplepb::SumRequest const &req, error) override {
         print "sum service got", req.left, req.right;
         return {.answer = req.left + req.right};
     }
 
-    void subscribe_sum_events(examplepb::RPCServer &server, examplepb::SumEventsRequest const &req, error) override {
+    void subscribe_sum_events(examplepb::SumEventsRequest const &req, std::function<void(examplepb::SumEvent const &)> const &callback, error) override {
         print "SERVER GOT SUBSCRIBE";
         if (req.v != 42) {
             panic("bad req value");
         }
-        if (this->server) {
-            panic("server already set");
+        if (this->sum_event_callback) {
+            panic("callback already set");
         }
-        this->server = &server;
+        this->sum_event_callback = callback;
     }
 
-    void unsubscribe_sum_events() override {
+    void unsubscribe_sum_events(lib::error) override {
         print "SERVER GOT UNSUBSCRIBE";
-        this->server = nil;
+        this->sum_event_callback = nullptr;
     }
 
     void do_event(int i) {
-        server->send_SumService_sum_events({.event = i });
+        if (this->sum_event_callback) {
+            this->sum_event_callback(examplepb::SumEvent{.event = i});
+        }
     }
 } ;
 
-struct CANService : examplepb::CANService {
+struct CANService : examplepb::CANServiceBase {
     void send(examplepb::CANFrame const &req, lib::error) override {
         print "CANService::SEND id %v" % req.frame_id;
     }
 } ;
 
-struct ExampleService : examplepb::ExampleService {
+struct ExampleService : examplepb::ExampleServiceBase {
     virtual void say_hello(lib::error /*err*/) override {
         print "say_hello()";
+    }
+
+    std::function<void()> event1_callback;
+    std::function<void(examplepb::ExampleEvent const&)> event2_callback;
+    std::function<void()> event3_callback;
+
+    virtual void subscribe_example_event1(std::function<void()> const &cb, lib::error err) override {
+        event1_callback = cb;
+    }
+    virtual void unsubscribe_example_event1(lib::error err) override {
+        event1_callback = nullptr;
+    }
+    virtual void subscribe_example_event2(std::function<void(examplepb::ExampleEvent const&)> const &cb, lib::error err) override {
+        event2_callback = cb;
+    }
+    virtual void unsubscribe_example_event2(lib::error err) override {
+        event2_callback = nullptr;
+    }
+    virtual void subscribe_example_event3(examplepb::ExampleEvent const &req, std::function<void()> const &cb, lib::error err) override {
+        event3_callback = cb;
+    }
+    virtual void unsubscribe_example_event3(lib::error err) override {
+        event3_callback = nullptr;
     }
 } ;
 
@@ -107,7 +133,7 @@ void test_e2e(testing::T &t) {
     Summer summer;
     CANService can;
     ExampleService example;
-    examplepb::RPCServer server(summer, can, example);
+    serialrpc::Server server(summer, can, example);
 
     sync::atomic<bool> stop = false;
 
@@ -121,14 +147,18 @@ void test_e2e(testing::T &t) {
         }
     };
 
-    examplepb::RPCClient client(client_conn);
+    examplepb::SumServiceStub sum_stub;
+    examplepb::CANServiceStub can_stub;
+    examplepb::ExampleServiceStub example_stub;
+    std::shared_ptr<Client> client = serialrpc::connect(client_conn, {&sum_stub, &can_stub, &example_stub}, error::panic);
+    print "client connected";
 
-    client.start(error::panic);
     print "client started";
 
     print "making request...";
-    examplepb::SumResponse resp = client.sum_service.sum(examplepb::SumRequest{.left = 10, .right = 20}, error::panic);;
+    examplepb::SumResponse resp = sum_stub.sum(examplepb::SumRequest{.left = 10, .right = 20}, error::panic);;
     
+    print "got response", resp.answer;
     if (resp.answer != 30) {
         t.errorf("client.call got %v; want 30", resp.answer);
     }
@@ -137,7 +167,7 @@ void test_e2e(testing::T &t) {
 
     print "EVENTS BEGIN";
     std::vector<int> received_events;
-    client.sum_service.subscribe_sum_events({ .v = 42 }, [&](examplepb::SumEvent const &event) {
+    sum_stub.subscribe_sum_events({ .v = 42 }, [&](examplepb::SumEvent const &event) {
         print "GOT EVENT", event.event;
         received_events.push_back(event.event);
     }, error::panic);
@@ -147,14 +177,44 @@ void test_e2e(testing::T &t) {
     summer.do_event(3);
     // END EVENT
 
-    client.can_service.send({.frame_id = 123, .data = "hello"}, error::panic);
+    int event1_count = 0;
+    int event2_count = 0;
+    int event3_count = 0;
 
-    client.example_service.say_hello(error::panic);
+        // More event tests
+    example_stub.subscribe_example_event1([&]{
+        event1_count++;
+    }, error::panic);
+    example_stub.subscribe_example_event2([&](examplepb::ExampleEvent const &event){
+        event2_count++;
+    }, error::panic);
+    example_stub.subscribe_example_event3({}, [&]{
+        event3_count++;
+    }, error::panic);
+
+    example.event1_callback();
+    example.event2_callback(examplepb::ExampleEvent{});
+    example.event3_callback();
+
+    // other tests
+
+    can_stub.send({.frame_id = 123, .data = "hello"}, error::panic);
+
+    example_stub.say_hello(error::panic);
 
     stop.store(true);
-    client.close(error::panic);
+    client->close(error::panic);
 
     if (received_events != std::vector<int>{1, 2, 3}) {
         t.errorf("received events got %v; want [1, 2, 3]", received_events);
+    }
+    if (event1_count != 1) {
+        t.errorf("event1_count got %v; want 1", event1_count);
+    }
+    if (event2_count != 1) {
+        t.errorf("event2_count got %v; want 1", event2_count);
+    }
+    if (event3_count != 1) {
+        t.errorf("event3_count got %v; want 1", event3_count);
     }
 }

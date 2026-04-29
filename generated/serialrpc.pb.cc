@@ -66,11 +66,13 @@ const char descriptor_table_protodef_serialrpc_2eproto[] ABSL_ATTRIBUTE_SECTION_
     "google.protobuf.FieldOptions\030\320\206\003 \001(\r:3\n\n"
     "bytes_size\022\035.google.protobuf.FieldOption"
     "s\030\321\206\003 \001(\r:3\n\narray_size\022\035.google.protobu"
-    "f.FieldOptions\030\322\206\003 \001(\r:5\n\nservice_id\022\037.g"
-    "oogle.protobuf.ServiceOptions\030\320\206\003 \001(\r:3\n"
-    "\tmethod_id\022\036.google.protobuf.MethodOptio"
-    "ns\030\320\206\003 \001(\rB4\n\035com.philips.emil.protobufE"
-    "choB\023EchoAttributesProtob\006proto3"
+    "f.FieldOptions\030\322\206\003 \001(\r:/\n\004uuid\022\037.google."
+    "protobuf.ServiceOptions\030\320\206\003 \001(\t:8\n\rmajor"
+    "_version\022\037.google.protobuf.ServiceOption"
+    "s\030\321\206\003 \001(\r:8\n\rminor_version\022\037.google.prot"
+    "obuf.ServiceOptions\030\322\206\003 \001(\r:3\n\tmethod_id"
+    "\022\036.google.protobuf.MethodOptions\030\320\206\003 \001(\r"
+    "b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_serialrpc_2eproto_deps[1] = {
@@ -80,7 +82,7 @@ static ::absl::once_flag descriptor_table_serialrpc_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_serialrpc_2eproto = {
     false,
     false,
-    392,
+    448,
     descriptor_table_protodef_serialrpc_2eproto,
     "serialrpc.proto",
     &descriptor_table_serialrpc_2eproto_once,
@@ -214,10 +216,19 @@ PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 ::_pbi::ExtensionIdentifier<
         ::google::protobuf::FieldOptions, ::_pbi::PrimitiveTypeTraits< ::uint32_t >, 13, false>
         array_size(kArraySizeFieldNumber, 0u);
+const std::string uuid_default("");
+PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 ::_pbi::ExtensionIdentifier<
+        ::google::protobuf::ServiceOptions, ::_pbi::StringTypeTraits, 9, false>
+        uuid(kUuidFieldNumber, uuid_default);
 PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 ::_pbi::ExtensionIdentifier<
         ::google::protobuf::ServiceOptions, ::_pbi::PrimitiveTypeTraits< ::uint32_t >, 13, false>
-        service_id(kServiceIdFieldNumber, 0u);
+        major_version(kMajorVersionFieldNumber, 0u);
+PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 ::_pbi::ExtensionIdentifier<
+        ::google::protobuf::ServiceOptions, ::_pbi::PrimitiveTypeTraits< ::uint32_t >, 13, false>
+        minor_version(kMinorVersionFieldNumber, 0u);
 PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 ::_pbi::ExtensionIdentifier<
         ::google::protobuf::MethodOptions, ::_pbi::PrimitiveTypeTraits< ::uint32_t >, 13, false>
@@ -241,7 +252,13 @@ PROTOBUF_ATTRIBUTE_INIT_PRIORITY2 static ::std::false_type
             &::google::protobuf::FieldOptions::default_instance(), 50002, 13,
             false, false),
         ::_pbi::ExtensionSet::RegisterExtension(
-            &::google::protobuf::ServiceOptions::default_instance(), 50000, 13,
+            &::google::protobuf::ServiceOptions::default_instance(), 50000, 9,
+            false, false),
+        ::_pbi::ExtensionSet::RegisterExtension(
+            &::google::protobuf::ServiceOptions::default_instance(), 50001, 13,
+            false, false),
+        ::_pbi::ExtensionSet::RegisterExtension(
+            &::google::protobuf::ServiceOptions::default_instance(), 50002, 13,
             false, false),
         ::_pbi::ExtensionSet::RegisterExtension(
             &::google::protobuf::MethodOptions::default_instance(), 50000, 13,

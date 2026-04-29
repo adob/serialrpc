@@ -1,10 +1,12 @@
-#include "encoding.h"
-#include "lib/io.h"
+#include <algorithm>
+#include <bit>
+
+#include "lib/base.h"
 #include "lib/io/io.h"
 #include "lib/io/util.h"
-#include "lib/print.h"
 #include "lib/varint/varint.h"
-#include <bit>
+
+#include "encoding.h"
 
 using namespace lib;
 using namespace serialrpc;
@@ -27,7 +29,6 @@ void UnArchiver::read(float64 &n) {
     io::read_full(in, b, err);
 }
 
-
 void Archiver::write(bool b) {
     out.write_byte(b ? 1 : 0, err);
 }
@@ -35,17 +36,6 @@ void Archiver::write(bool b) {
 void UnArchiver::read(bool &b) {
     b = in.read_byte(err) != 0;
 }
-
-// Tag serialrpc::read_tag(str *data, error err) {
-//     int32 n = varint::read_uint32(data, err);
-//     if (err) {
-//         return {};
-//     }
-
-//     Tag::Type type = Tag::Type(n & 7);
-//     int32 field_num = n >> 3;
-//     return {type, field_num};
-// }
 
 Tag serialrpc::read_tag(io::Reader &in, error err) {
     int32 n = varint::read_uint32(in, err);
@@ -62,63 +52,6 @@ void serialrpc::write_tag(io::Writer &out, int32 field_number, Tag::Type type, e
     uint32 val = (field_number << 3) | uint8(type);
     varint::write_uint32(out, val, err);
 }
-
-
-// void serialrpc::skip(str *data, Tag::Type type, error err, int nesting) {
-//     switch (type) {
-//     case Tag::VarInt:
-//         varint::skip(data, err);
-//         break;
-
-//     case Tag::I64:
-//         if (len(*data) < 8) {
-//             err(io::ErrUnexpectedEOF());
-//         }
-//         (*data) = *data + 8;
-//         break;
-
-//     case Tag::Len: {
-//         size n = varint::read_uint32(data, err);
-//         if (err) {
-//             return;
-//         }
-//         if (len(*data) < n) {
-//             err(io::ErrUnexpectedEOF());
-//             return;
-//         }
-//         (*data) = *data + n;
-//         break;
-//     }
-
-//     case Tag::Start:
-//         for (;;) {
-//             Tag tag = serialrpc::read_tag(data, err);
-//             if (err) {
-//                 return;
-//             }
-//             if (tag.type == Tag::End) {
-//                 return;
-//             }
-//             skip(data, tag.type, err, nesting-1);
-//             if (err) {
-//                 return;
-//             }
-//         }
-//         break;
-
-    
-//     case Tag::I32:
-//         if (len(*data) < 4) {
-//             err(io::ErrUnexpectedEOF());
-//         }
-//         (*data) = *data + 4;
-//         break;
-    
-//     default:
-//         err("serialrpc: invalid tag");
-//         return;
-//     }
-// }
 
 void serialrpc::skip(io::Reader &in, Tag::Type type, error err, int nesting) {
     switch (type) {
@@ -178,16 +111,6 @@ void serialrpc::skip(io::Reader &in, error err) {
     }
     skip(in, tag, err, 128);
 }
-
-// template <>
-// void serialrpc::marshal<int32>(io::Writer &out, int32 const& t, error err, int /*nesting*/) {
-//     varint::write_sint32(out, t, err);
-// }
-
-// template <>
-// void serialrpc::marshal<uint32>(io::Writer &out, uint32 const& t, error err, int /*nesting*/) {
-//     varint::write_uint32(out, t, err);
-// }
 
 template <>
 int32 serialrpc::unmarshal<int32>(io::Reader &in, error err, int /*nesting*/) {

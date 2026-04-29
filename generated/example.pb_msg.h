@@ -3,15 +3,15 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
+#include <functional>
 #include "lib/error.h"
 #include "lib/inline_string.h"
 #include "lib/io/io.h"
 #include "serialrpc/encoding.h"
 
 namespace examplepb {
-    struct RPCServer;
-
     struct SumRequest {
         static void marshal(SumRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
@@ -80,6 +80,14 @@ namespace examplepb {
         static const uint32_t DataFieldNumber = 2;
     };
 
+    struct ExampleEvent {
+        static void marshal(ExampleEvent const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static ExampleEvent unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const ExampleEvent& other) const;
+    };
+
     struct CANFrame {
         static void marshal(CANFrame const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
@@ -97,18 +105,57 @@ namespace examplepb {
     };
 
     struct SumService {
+        static constexpr char ServiceName[] = "SumService";
+
+        // uuid: 4f90fb19-7b58-4755-bb1f-3c81dc0a6d4d
+        static constexpr std::array<uint8_t, 16> UUID = {0x4f, 0x90, 0xfb, 0x19, 0x7b, 0x58, 0x47, 0x55, 0xbb, 0x1f, 0x3c, 0x81, 0xdc, 0x0a, 0x6d, 0x4d};
+
+        static const int MajorVersion = 0;
+
+        static const int MinorVersion = 0;
+
         virtual SumResponse sum(SumRequest const &req, lib::error err) = 0;
 
-        virtual void subscribe_sum_events(RPCServer &server, SumEventsRequest const &req, lib::error err) = 0;
+        virtual void subscribe_sum_events(SumEventsRequest const &req, std::function<void(SumEvent const&)> const &cb, lib::error err) = 0;
 
-        virtual void unsubscribe_sum_events() = 0;
+        virtual void unsubscribe_sum_events(lib::error err) = 0;
     };
 
     struct CANService {
+        static constexpr char ServiceName[] = "CANService";
+
+        // uuid: 9ef75f02-0a49-49b8-b4b6-7bfb8ad046d9
+        static constexpr std::array<uint8_t, 16> UUID = {0x9e, 0xf7, 0x5f, 0x02, 0x0a, 0x49, 0x49, 0xb8, 0xb4, 0xb6, 0x7b, 0xfb, 0x8a, 0xd0, 0x46, 0xd9};
+
+        static const int MajorVersion = 0;
+
+        static const int MinorVersion = 0;
+
         virtual void send(CANFrame const &req, lib::error err) = 0;
     };
 
     struct ExampleService {
+        static constexpr char ServiceName[] = "ExampleService";
+
+        // uuid: a569fb0d-8929-4475-bd83-3dd372078657
+        static constexpr std::array<uint8_t, 16> UUID = {0xa5, 0x69, 0xfb, 0x0d, 0x89, 0x29, 0x44, 0x75, 0xbd, 0x83, 0x3d, 0xd3, 0x72, 0x07, 0x86, 0x57};
+
+        static const int MajorVersion = 0;
+
+        static const int MinorVersion = 0;
+
         virtual void say_hello(lib::error err) = 0;
+
+        virtual void subscribe_example_event1(std::function<void()> const &cb, lib::error err) = 0;
+
+        virtual void unsubscribe_example_event1(lib::error err) = 0;
+
+        virtual void subscribe_example_event2(std::function<void(ExampleEvent const&)> const &cb, lib::error err) = 0;
+
+        virtual void unsubscribe_example_event2(lib::error err) = 0;
+
+        virtual void subscribe_example_event3(ExampleEvent const &req, std::function<void()> const &cb, lib::error err) = 0;
+
+        virtual void unsubscribe_example_event3(lib::error err) = 0;
     };
 }

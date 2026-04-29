@@ -1,12 +1,10 @@
 #pragma once
 
+#include <vector>
+
 #include "lib/base.h"
 #include "lib/inline_string.h"
-#include "lib/io.h"
 #include "lib/io/io.h"
-#include "lib/varint.h"
-#include "lib/varint/varint.h"
-#include <concepts>
 
 namespace serialrpc {
     using namespace lib;
@@ -19,8 +17,6 @@ namespace serialrpc {
         void operator () (Args &&...args) {
             // https://www.foonathan.net/2020/05/fold-tricks/
             (void) ( (write(args), bool(err)) || ... );
-
-            //(*this << ... << args);
         }
 
         void write(int32);
@@ -119,11 +115,6 @@ namespace serialrpc {
         uint32 *end() { return elems+size; }
     } ;
 
-    // template <typename T>
-    // void marshal_fields(io::Writer &out, T const& t, error err, int nesting, Stack &stack) {
-    //     T::marshal(t, out, err, nesting, stack);
-    // }
-
     void write_tag(io::Writer &out, int32 field_number, Tag::Type type, error err);
 
     template <typename T>
@@ -159,6 +150,11 @@ namespace serialrpc {
     void marshal_field(io::Writer &out, int32 field_numer, str s, error err, int nesting, Stack &stack);
 
     template <typename T>
+    void marshal_field(io::Writer &out, int32 field_number, std::vector<T> const &vec, error err, int nesting, Stack &stack) {
+        panic("not implemented");
+    }
+
+    template <typename T>
     void marshal(io::Writer &out, T const& t, error err) {
         Stack stack;
         T::marshal(t, out, err, MaxNesting, stack);
@@ -167,27 +163,6 @@ namespace serialrpc {
         }
         out.write_byte(Tag::End, err);
     }
-
-    // template <>
-    // void marshal<int32>(io::Writer &out, int32 const& t, error err, int nesting, Stack &stack);
-    
-    // template <>
-    // void marshal<uint32>(io::Writer &out, uint32 const& t, error err, int nesting, Stack &stack);
-
-    // template <typename T>
-    // T unmarshal(str *data, error err, int nesting = 128) {
-    //     if (nesting < 0) {
-    //         err("excessive nesting");
-    //         return {};
-    //     }
-    //     return T::unmarshal(data, err, nesting);
-    // }
-
-    // template <>
-    // int32 unmarshal<int32>(str *data, error err, int /*nesting*/);
-
-    // template <>
-    // uint32 unmarshal<uint32>(str *data, error err, int /*nesting*/);
 
     template <Marshallable T>
     T unmarshal(io::Reader &in, error err, int nesting = 128) {
@@ -218,9 +193,17 @@ namespace serialrpc {
         return t;
     }
 
+    template<class T>
+    concept std_vector = requires { []<class X, class A>(std::vector<X, A> const&){}(std::declval<std::remove_cvref_t<T> const&>()); };
+
     template <typename T>
     T unmarshal(io::Reader &, error, int /*nesting*/ = 128) {
-        static_assert(false);
+        if constexpr (std_vector<T>) {
+            panic("unmarshal vector not implemented");
+            return {};
+        } else {
+            static_assert(false);
+        }
     }
 
     template <>
@@ -247,13 +230,6 @@ namespace serialrpc {
     template <>
     str unmarshal<str>(io::Reader &in, error err, int /*nesting*/);
 
-    // template <size N>
-    // InlineString<N> unmarshal(io::Reader &in, error err, int /*nesting*/) {
-    //     panic("!");
-    //     return {};
-    // }
-
-    // void skip(str *data, Tag::Type type, error err, int nesting = 128);
     void skip(io::Reader &in, Tag::Type type, error err, int nesting = 128);
 
     void write_chunked(io::Writer &out, io::WriterTo const &msg, error err);

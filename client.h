@@ -1,9 +1,11 @@
 #pragma once
+#include <initializer_list>
 #include <memory>
+#include <span>
+#include <sys/types.h>
 #include <unistd.h>
-#include <cstddef>
-#include <type_traits>
 #include <atomic>
+#include <boost/unordered/unordered_flat_map.hpp>
 
 #include "lib/io/io.h"
 #include "lib/sync/atomic.h"
@@ -13,22 +15,38 @@
 
 #include "encoding.h"
 #include "rpc.h"
+#include "generated/serialrpc_protocol.pb_msg.h"
 
 namespace serialrpc {
     using namespace lib;
 
-    struct ClientBase {
-        std::shared_ptr<lib::io::ReaderWriter> conn;
+    struct Client;
+    
 
-        ClientBase() : conn(nil) {}
-        ClientBase(std::shared_ptr<lib::io::ReaderWriter> const &conn);
+    struct Stub {
+        int rpc_offset = 0;
+        std::shared_ptr<Client> client;
+
+        str uuid;
+        int major_version = 0;
+        int minor_version = 0;
+        str name;
+    } ;
+
+    std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, std::initializer_list<Stub*> service_infos, error err);
+
+    struct Client {
+        std::shared_ptr<lib::io::ReaderWriter> conn;
+        boost::unordered_flat_map<uint32, std::function<void(lib::io::ReaderWriter &, error)>> event_callbacks;
+
+        Client() : conn(nil) {}
+        Client(std::shared_ptr<lib::io::ReaderWriter> const &conn);
 
         void init(std::shared_ptr<lib::io::ReaderWriter> const &conn);
-        void start(error err);
         void close(error err);
         void wait(error err);
 
-        ~ClientBase();
+        ~Client();
 
       protected:
 
@@ -44,7 +62,7 @@ namespace serialrpc {
             
             Waiter response_received;
 
-            ClientBase *client = nil;
+            Client *client = nil;
             void *resp = nil;
             error *err = nil;
             str service_name;
@@ -72,11 +90,10 @@ namespace serialrpc {
         CallData *head = nil;
         CallData *tail = nil;
 
-        virtual void handle_event(uint32 event_id, error err) = 0;
-
+      public:
         template <typename Req, typename Resp>
         Resp call(uint32 rpc_id, str service_name, str procedure_name, Req const &req, error err) {
-            ClientBase &c = *this;
+            Client &c = *this;
             Resp resp;
             CallData call_data = {
                 .client    = this,
@@ -97,9 +114,7 @@ namespace serialrpc {
                     fail(lock);
                     return {};
                 }
-                // fmt::printf("client: start request done\n");
                 marshal(*conn, req, err);
-                // fmt::printf("client: marshal request done\n");
                 if (err) {
                     fail(lock);
                     return {};
@@ -111,14 +126,13 @@ namespace serialrpc {
                 }
             }
             
-            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
             return resp;
         }
 
         template <typename Resp>
         Resp call(uint32 rpc_id, str service_name, str procedure_name, error err) {
-            ClientBase &c = *this;
+            Client &c = *this;
             Resp resp;
             CallData call_data = {
                 .client    = this,
@@ -139,9 +153,7 @@ namespace serialrpc {
                     fail(lock);
                     return {};
                 }
-                // fmt::printf("client: start request done\n");
                 conn->write_byte(Tag::End, err);
-                // fmt::printf("client: marshal request done\n");
                 if (err) {
                     fail(lock);
                     return {};
@@ -153,14 +165,13 @@ namespace serialrpc {
                 }
             }
             
-            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
             return resp;
         }
 
         template <typename Req>
         void call_void(uint32 rpc_id, str service_name, str procedure_name, Req const &req, error err) {
-            ClientBase &c = *this;
+            Client &c = *this;
             
             CallData call_data = {
                 .client    = this,
@@ -176,9 +187,7 @@ namespace serialrpc {
                     fail(lock);
                     return;
                 }
-                // fmt::printf("client: start request done\n");
                 marshal(*conn, req, err);
-                // fmt::printf("client: marshal request done\n");
                 if (err) {
                     fail(lock);
                     return;
@@ -190,13 +199,12 @@ namespace serialrpc {
                 }
             }
             
-            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
             return;
         }
 
         void call_void(uint32 rpc_id, str service_name, str procedure_name, error err) {
-            ClientBase &c = *this;
+            Client &c = *this;
             
             CallData call_data = {
                 .client    = this,
@@ -228,14 +236,14 @@ namespace serialrpc {
                 }
             }
             
-            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
             return;
         }
 
         template <typename T>
         void subscribe(uint32 event_id, str service_name, str procedure_name, T const &req, error err) {
-            ClientBase &c = *this;
+            printf("subscribe with event_id %u\n", event_id);
+            Client &c = *this;
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
@@ -255,7 +263,6 @@ namespace serialrpc {
                     return;;
                 }
                 marshal(*c.conn, req, err);
-                // fmt::printf("client: marshal subscribe done\n");
                 if (err) {
                     c.fail(lock);
                     return;
@@ -267,12 +274,11 @@ namespace serialrpc {
                 }
             }
             
-            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
         }
 
         void subscribe(uint32 event_id, str service_name, str procedure_name, error err) {
-             ClientBase &c = *this;
+             Client &c = *this;
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
@@ -303,12 +309,11 @@ namespace serialrpc {
                 }
             }
             
-            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
         }
 
         void unsubscribe(uint32 event_id, str service_name, str procedure_name, error err) {
-            ClientBase &c = *this;
+            Client &c = *this;
             CallData call_data = {
                 .client    = this,
                 .err       = &err,
@@ -322,7 +327,7 @@ namespace serialrpc {
                     c.fail(lock);
                     return;
                 }
-                // fmt::printf("client: start request done\n"); 
+
                 c.conn->write_byte(0, err);
                 if (err) {
                     c.fail(lock);
@@ -335,18 +340,30 @@ namespace serialrpc {
                 }
             }
             
-            // fmt::printf("sent request; now waiting for data\n");
             call_data.response_received.wait();
         }
 
-        void start_unlocked(error err);
+        void register_event_callback(
+            uint32 event_id,
+            std::function<void(lib::io::ReaderWriter &, error)> cb);
+
+        void unregister_event_callback(uint32 event_id);
+
+      protected:
+        void start(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err);
+        void start_unlocked(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err);
         void start_request(uint32 rpc_id, CallData *call_data, error err);
         void finish_request(error err);
         void handle_error_response(CallData const &call_data, error err);
-        void input();
-        void client_hello(error err);
+        void input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client);
+        void client_hello(std::span<Stub *const> service_infos, std::shared_ptr<Client> const &shared_client, error err);
+        void read_services_def(std::span<Stub *const> service_infos, std::shared_ptr<Client> const &shared_client, error err);
+        void handle_service_def(serialrpcpb::ServiceDef const &service_def, std::span<Stub *const> service_infos, std::shared_ptr<Client> const &shared_client, int offset, error err);
         void fail(sync::Lock const&);
         void handle_reply(ServerMessageType type, error);
         void handle_log(error err);
+        void handle_event(uint32 event_id, error err);
+
+        friend std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, std::initializer_list<Stub*> service_infos, error err);
     } ;
 }

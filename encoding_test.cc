@@ -1,10 +1,9 @@
-#include "encoding.h"
-#include "example.pb_msg.h"
-
 #include "lib/testing/testing.h"
 #include "lib/io/io.h"
 #include "lib/print.h"
 
+#include "encoding.h"
+#include "generated/example.pb_msg.h"
 
 using namespace lib;
 using namespace lib::testing;

@@ -1,13 +1,16 @@
-#include "client.h"
+#include <initializer_list>
+
+#include "lib/io/io.h"
 #include "lib/io/util.h"
 #include "lib/varint/varint.h"
+#include "lib/error.h"
+#include "lib/fmt/fmt.h"
+
+#include "client.h"
 #include "rpc.h"
 #include "internal.h"
 #include "encoding.h"
-
-#include "lib/error.h"
-#include "lib/fmt/fmt.h"
-#include "lib/print.h"
+#include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
 
 using namespace lib;
 using namespace serialrpc;
@@ -33,15 +36,25 @@ static void print_line(byte b, io::ReaderWriter &conn, error err) {
     fmt::fprintf(os::stderr, "serialrpc raw log: %q\n", msg);
 }
 
-void ClientBase::start(error err) {
-    sync::Lock lock(call_mtx);
-    start_unlocked(err);
+void serialrpc::Client::register_event_callback(uint32 event_id, std::function<void(lib::io::ReaderWriter &, error)> cb) {
+  Client &c = *this;
+  c.event_callbacks[event_id] = cb;
+}
+void serialrpc::Client::unregister_event_callback(uint32 event_id) {
+  Client &c = *this;
+  c.event_callbacks.erase(event_id);
 }
 
-void ClientBase::wait(error err) {
-    ClientBase &c = *this;
+void Client::start(std::span<Stub *const> stubs,
+                   std::shared_ptr<Client> const &shared_client, error err) {
+  Client &c = *this;
+  sync::Lock lock(call_mtx);
 
-    // c.input_worker.join();
+  c.start_unlocked(stubs, shared_client, err);
+}
+
+void Client::wait(error err) {
+    Client &c = *this;
 
     sync::Lock lock(cond_mutex);
     for (;;) {
@@ -59,8 +72,8 @@ void ClientBase::wait(error err) {
     }
 }
 
-void ClientBase::close(error err) {
-    ClientBase &c = *this;
+void Client::close(error err) {
+    Client &c = *this;
     sync::Lock lock(c.call_mtx);
 
     if (c.conn == nil) {
@@ -106,17 +119,10 @@ again:
     c.conn->close(err);
 }
 
-void ClientBase::start_request(uint32 rpc_id, CallData *call_data, error err) {
-    // print "start_request";
-
-    ClientBase &c = *this;
-    c.start_unlocked(err);
-    if (err) {
-        return;
-    }
+void Client::start_request(uint32 rpc_id, CallData *call_data, error err) {
+    Client &c = *this;
 
     // write rpc_id
-    // print "writing rpc_id", rpc_id;
     varint::write_uint32(*c.conn, rpc_id, err);
     if (err) {
         return;
@@ -132,14 +138,14 @@ void ClientBase::start_request(uint32 rpc_id, CallData *call_data, error err) {
     c.tail = call_data;
 }
 
-void ClientBase::finish_request(error err) {
-    ClientBase &c = *this;
+void Client::finish_request(error err) {
+    Client &c = *this;
     reqnum.add(1);
     c.conn->flush(err);
 }
 
-void ClientBase::handle_error_response(CallData const &call_data, error err) {
-    ClientBase &c = *this;
+void Client::handle_error_response(CallData const &call_data, error err) {
+    Client &c = *this;
     String text = read_chunked(*c.conn, err);
     if (err) {
         //c.fail(sync::Lock(call_mtx));
@@ -149,8 +155,8 @@ void ClientBase::handle_error_response(CallData const &call_data, error err) {
     (*call_data.err)(ErrReply(call_data.service_name, call_data.procedure_name, text));
 }
 
-void ClientBase::fail(sync::Lock const&) {
-    ClientBase &c = *this;
+void Client::fail(sync::Lock const&) {
+    Client &c = *this;
     c.head = nil;
     c.tail = nil;
 
@@ -167,8 +173,18 @@ again:
     c.conn->close(error::ignore);
 }
 
-void ClientBase::start_unlocked(error err) {
-    ClientBase &c = *this;
+void serialrpc::Client::handle_event(uint32 event_id, error err) {
+    Client &c = *this;
+    auto it = c.event_callbacks.find(event_id);
+    if (it == c.event_callbacks.end()) {
+        return err("got event with unknown event_id %v", event_id);
+    }
+
+    it->second(*c.conn, err);
+}
+
+void Client::start_unlocked(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err) {
+  Client &c = *this;
 again:
     State state = c.state.load();
 
@@ -211,14 +227,12 @@ again:
         return;
     }
 
-    this->input_worker = sync::go([&] { this->input(); });
+    c.input_worker = sync::go([&] { this->input(stubs, shared_client); });
 
     sync::Lock lock(cond_mutex);
     while (c.state.load() == Starting) {
         this->call_cond.wait(this->cond_mutex);
     }
-
-    // eprint "serialrpc started";
 
     if (c.state.load() == Failing) {
         err(*this->err);
@@ -227,8 +241,8 @@ again:
     }
 }
 
-void ClientBase::input() {
-    ClientBase &c = *this;
+void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client) {
+    Client &c = *this;
     ErrorFunc err = [&](Error &e){
         sync::Lock lock(cond_mutex);
 
@@ -249,7 +263,7 @@ void ClientBase::input() {
         this->err = nil;
     };
 
-    this->client_hello(err);
+    this->client_hello(stubs, shared_client, err);
     if (err) {
         return;
     }
@@ -257,7 +271,6 @@ void ClientBase::input() {
     for (;;) {
         byte b = conn->read_byte(err);
         ServerMessageType type = ServerMessageType(b);
-        // print "GOT MSG %2X" % (int) type;
         if (err) {
             return;
         }        
@@ -295,7 +308,6 @@ void ClientBase::input() {
             return;
             
         case ServerMessageType::ServerGoodbye:
-            // print "received server goodbye";
             return;
         
         case ServerMessageType::ServerHello:
@@ -311,20 +323,13 @@ void ClientBase::input() {
     }    
 }
 
-void ClientBase::handle_log(error err) {
-    ClientBase &c = *this;
+void Client::handle_log(error err) {
+    Client &c = *this;
 
     uint32 nbytes = varint::read_uint32(*c.conn, err);
     if (err) {
         return;
     }
-
-    // print "log nbytes", nbytes;
-
-    // for (int i = 0; i < nbytes; i++) {
-    //     char ch = c.conn->read_byte(error::panic);
-    //     fmt::printf("read %d char %#U\n", i, ch);
-    // }
 
     Buffer data(nbytes);
     io::read_full(*c.conn, data, err);
@@ -332,7 +337,6 @@ void ClientBase::handle_log(error err) {
         return;
     }
     
-    // fmt::printf("serialrpc log: %q\n", str(data));
     if (len(data) == 0) {
         return;
     }
@@ -341,18 +345,16 @@ void ClientBase::handle_log(error err) {
     } else {
         fmt::fprintf(os::stderr, "serialrpc log: %s\n", str(data));
     }
-    
 }
 
-void ClientBase::handle_reply(ServerMessageType type, error err) {
-    ClientBase &c = *this;
+void Client::handle_reply(ServerMessageType type, error err) {
+    Client &c = *this;
     // pop call data
     CallData *call_data;
     respnum.add(1);
     {
         sync::Lock lock(call_mtx);
         if (c.head == nil) {
-            eprint "unexpected reply: reqnum %v; respnum %v" % reqnum.load(), respnum.load();
             err("unexpected reply");
         }
         call_data = c.head;
@@ -371,7 +373,8 @@ void ClientBase::handle_reply(ServerMessageType type, error err) {
     call_data->response_received.notify();
 }
 
-void ClientBase::client_hello(error err) {
+void Client::client_hello(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err) {
+    Client &c = *this;
     this->conn->write_byte(byte(ClientHello), err);
     if (err) {
         return;
@@ -402,12 +405,15 @@ again:
     }
 
     if (b != byte(ServerHello)) {
-        err("serialrpc received unexpected start byte: %#X; wanted ServerHello (%#X)", (int) b, (int) ServerHello);
+        err("serialrpc: received unexpected start byte: %#X; wanted ServerHello (%#X)", (int) b, (int) ServerHello);
+        return;
+    }
+
+    c.read_services_def(stubs, shared_client, err);
+    if (err) {
         return;
     }
     
-    //eprint "serialrpc client: handshake completed";
-
     sync::Lock lock(cond_mutex);
 
     State state = this->state.load();
@@ -420,17 +426,97 @@ again:
     this->call_cond.signal();
 }
 
-ClientBase::ClientBase(std::shared_ptr<lib::io::ReaderWriter> const &conn)
+void Client::read_services_def(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client, error err) {
+    Client &c = *this;
+    io::ReaderWriter &conn = *c.conn;
+
+    int offset = 1;
+    for (;;) {
+        Tag tag = read_tag(conn, err);
+        if (err) {
+            return;
+        }
+        if (tag.type == Tag::End) {
+            break;
+        }
+        switch (tag.field_num) {
+        case serialrpcpb::ServerHello::ServicesFieldNumber: {
+            serialrpcpb::ServiceDef service_def = serialrpcpb::ServiceDef::unmarshal(conn, err, MaxNesting);
+            if (err) {
+                return;
+            }
+            c.handle_service_def(service_def, stubs, shared_client, offset, err);
+            if (err) {
+                return;
+            }
+            offset += service_def.num_endpoints;
+            break;
+        }
+
+        case serialrpcpb::ServerHello::ProtocolVersionFieldNumber: {
+            uint32 protocol_version = varint::read_uint32(conn, err);
+            if (err) {
+                return;
+            }
+            if (protocol_version != ProtocolVersion) {
+                err("serialrpc: protocol version mismatch: server has %d; client has %d", protocol_version, ProtocolVersion);
+                return;
+            }
+            break;
+        }
+
+        default:
+            serialrpc::skip(conn, tag.type, err, MaxNesting);
+            if (err) {
+                return;
+            }
+        }
+    }
+}
+
+void Client::handle_service_def(
+    serialrpcpb::ServiceDef const &service_def, 
+    std::span<Stub *const> stubs, 
+    std::shared_ptr<Client> const &client, 
+    int offset, 
+    error err) {
+    
+    for (Stub *const stub : stubs) {
+        if (str(stub->uuid) != str(service_def.uuid)) {
+            continue;
+        }
+
+        if (stub->major_version != service_def.major_version) {
+            err("serialrpc: server major version mismatch for service %q: server has %d; client has %d", 
+                stub->name, service_def.major_version, stub->major_version);
+            return;
+        }
+
+        if (stub->minor_version > service_def.minor_version) {
+            err("serialrpc: server minor version mismatch too low for service %q: server has %d; client has %d", 
+                stub->name, service_def.minor_version, stub->minor_version);
+            return;
+        }
+
+        stub->client = client;
+        stub->rpc_offset = offset;
+            
+        return;
+    }
+    
+}
+
+Client::Client(std::shared_ptr<lib::io::ReaderWriter> const &conn)
     : conn(conn) {}
 
-void ClientBase::Waiter::notify() {
+void Client::Waiter::notify() {
 
     state.store(1, std::memory_order::release);
     state.notify_one();
     state.store(2);
 }
 
-void ClientBase::Waiter::wait() {
+void Client::Waiter::wait() {
     for (;;) {
         int s = state.load(std::memory_order::acquire);
         if (s == 0) {
@@ -443,11 +529,12 @@ void ClientBase::Waiter::wait() {
         // spin wait
     }
 }
-serialrpc::ClientBase::~ClientBase() {
+serialrpc::Client::~Client() {
     this->close(error::ignore);
 }
-void serialrpc::ClientBase::init(std::shared_ptr<lib::io::ReaderWriter> const &conn) {
-    ClientBase &c = *this;
+
+void serialrpc::Client::init(std::shared_ptr<lib::io::ReaderWriter> const &conn) {
+    Client &c = *this;
     sync::Lock lock(c.call_mtx);
 
     if (c.conn != nil) {
@@ -455,4 +542,20 @@ void serialrpc::ClientBase::init(std::shared_ptr<lib::io::ReaderWriter> const &c
     }
 
     c.conn = conn;
+}
+
+std::shared_ptr<Client> serialrpc::connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, std::initializer_list<Stub*> stubs, error err) {
+    std::shared_ptr<Client> client = std::make_shared<Client>(conn);
+
+    Client &c = *client;
+    std::span<Stub *const> stubs_span{stubs.begin(), stubs.size()};
+    c.start(stubs_span, client, err);
+
+    for (Stub *const stub : stubs) {
+        if (stub->client.get() != client.get()) {
+            err("serialrpc: server does not have expected service %q (uuid %s)", stub->name, format_uuid(stub->uuid));
+            return nil;
+        }
+    }
+    return client;
 }

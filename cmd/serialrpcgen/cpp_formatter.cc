@@ -1,4 +1,4 @@
-#include "CppFormatter.h"
+#include "cpp_formatter.h"
 #include <functional>
 
 namespace application
@@ -389,8 +389,7 @@ namespace application
     {
         if ((flags & cDefault) == 0 && (flags & cDelete) == 0)
         {
-            printer.Print(R"($scope$$name$($parameters$)
-)",
+            printer.Print(R"($scope$$name$($parameters$))",
                 "scope", scope, "name", name, "parameters", Parameters());
 
             printer.Indent();
@@ -433,6 +432,12 @@ namespace application
     void Constructor::PrintInitializers(google::protobuf::io::Printer& printer) const
     {
         std::string separator = ": ";
+
+        if (!initializers.empty()) {
+            printer.Print("\n");
+        } else {
+            printer.Print(" ");
+        }
 
         for (auto& initializer : initializers)
         {
@@ -520,6 +525,19 @@ namespace application
     {
         printer.Print("$snippet$;\n", "snippet", snippet);
     }
+
+    HeaderSnippet::HeaderSnippet(const std::string& snippet)
+        : Entity(true, false)
+        , snippet(snippet)
+    {}
+
+    void HeaderSnippet::PrintHeader(google::protobuf::io::Printer& printer) const
+    {
+        printer.Print("$snippet$", "snippet", snippet);
+    }
+
+    void HeaderSnippet::PrintSource(google::protobuf::io::Printer& printer, const std::string& scope) const
+    {}
 
     Using::Using(const std::string& name, const std::string& definition)
         : Entity(true, false)

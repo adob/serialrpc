@@ -2,8 +2,11 @@
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor.pb.h"
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace application
@@ -285,7 +288,9 @@ namespace application
 
         const google::protobuf::ServiceDescriptor& descriptor;
         std::string name;
-        uint32_t serviceId;
+        std::array<uint8_t, 16> uuid;
+        int majorVersion;
+        int minorVersion;;
         std::vector<EchoMethod> methods;
     };
 
@@ -379,6 +384,12 @@ namespace application
     struct UnspecifiedServiceId
     {
         std::string service;
+    };
+
+    struct InvalidServiceUuid
+    {
+        std::string service;
+        std::string uuid;
     };
 
     struct UnspecifiedMethodId

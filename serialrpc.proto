@@ -1,8 +1,5 @@
 syntax = "proto3";
 
-option java_package = "com.philips.emil.protobufEcho";
-option java_outer_classname = "EchoAttributesProto";
-
 import "google/protobuf/descriptor.proto";
 
 extend google.protobuf.FieldOptions {
@@ -12,7 +9,9 @@ extend google.protobuf.FieldOptions {
 }
 
 extend google.protobuf.ServiceOptions {
-  uint32 service_id = 50000;
+  string uuid = 50000;
+  uint32 major_version = 50001;
+  uint32 minor_version = 50002;
 }
 
 extend google.protobuf.MethodOptions {

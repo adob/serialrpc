@@ -1,9 +1,9 @@
-#include "EchoObjects.h"
-#include "ProtoCEchoPlugin.h"
+#include "serialrpc_objects.h"
+#include "protoc_serialrpc_plugin.h"
 //#include "generated/EchoAttributes.pb.h"
 // #include "amp-embedded-infra-lib/build/protobuf/echo_attributes/generated/EchoAttributes.pb.h"
 // #include "EchoAttributes.pb.h"
-#include "serialrpc.pb.h"
+#include "serialrpc/generated/serialrpc.pb.h"
 #include "google/protobuf/compiler/cpp/helpers.h"
 // #include "google/protobuf/stubs/strutil.h"
 //#include "amp-embedded-infra-lib/build/_deps/protobuf-src/src/google/protobuf/stubs/strutil.h"
@@ -12,6 +12,11 @@
 
 #include "lib/strconv/itoa.h"
 #include <google/protobuf/descriptor.pb.h>
+#include <array>
+#include <cstdint>
+#include <iterator>
+#include <string>
+#include <string_view>
 
 using namespace lib;
 
@@ -147,6 +152,52 @@ namespace application
             }
 
             return namespaceString + std::string(descriptor.name()) + "Reference";
+        }
+
+        int HexDigit(char c)
+        {
+            if ('0' <= c && c <= '9')
+                return c - '0';
+            if ('a' <= c && c <= 'f')
+                return c - 'a' + 10;
+            if ('A' <= c && c <= 'F')
+                return c - 'A' + 10;
+
+            return -1;
+        }
+
+        std::optional<std::array<uint8_t, 16>> UuidStringToBytes(std::string_view uuid)
+        {
+            if (uuid.size() != 36)
+                return std::nullopt;
+
+            if (uuid[8] != '-' || uuid[13] != '-' || uuid[18] != '-' || uuid[23] != '-')
+                return std::nullopt;
+
+            std::array<uint8_t, 16> result{};
+            size_t byteIndex = 0;
+            for (size_t i = 0; i < uuid.size();) {
+                if (uuid[i] == '-') {
+                    ++i;
+                    continue;
+                }
+
+                if (i + 1 >= uuid.size())
+                    return std::nullopt;
+
+                int hi = HexDigit(uuid[i]);
+                int lo = HexDigit(uuid[i + 1]);
+                if (hi < 0 || lo < 0 || byteIndex >= result.size())
+                    return std::nullopt;
+
+                result[byteIndex++] = uint8_t((hi << 4) | lo);
+                i += 2;
+            }
+
+            if (byteIndex != result.size())
+                return std::nullopt;
+
+            return result;
         }
     }
 
@@ -758,10 +809,15 @@ namespace application
     EchoService::EchoService(const google::protobuf::ServiceDescriptor& descriptor, EchoRoot& root)
         : descriptor(descriptor)
         , name(descriptor.name())
-        , serviceId(descriptor.options().GetExtension(service_id))
     {
-        if (serviceId == 0)
-            throw UnspecifiedServiceId{ name };
+        std::string uuidString = descriptor.options().GetExtension(::uuid);
+        std::optional<std::array<uint8_t, 16>> uuid = UuidStringToBytes(uuidString);
+        if (!uuid)
+            throw InvalidServiceUuid{ name, uuidString };
+        this->uuid = *uuid;
+
+        this->majorVersion = descriptor.options().GetExtension(::major_version);
+        this->minorVersion = descriptor.options().GetExtension(::minor_version);
 
         try
         {

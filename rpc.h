@@ -6,6 +6,8 @@
 namespace serialrpc {
     using namespace lib;
     
+    const int ProtocolVersion = 1;
+
     enum ServerMessageType : byte {
         Reply         = 0xF0,
         ErrorReply    = 0xF1,
@@ -36,8 +38,8 @@ namespace serialrpc {
             , msg(msg)
             {}
         void fmt(io::Writer &out, error err) const override;
-        // lib::ErrorBase<ErrReply, "serialrpc error reply"> {};
     } ;
+    
     struct ErrUnknownMethod  : ErrorBase<ErrUnknownMethod, "serialrpc unknown method"> {};
     struct ErrRequestTooBig  : ErrorBase<ErrRequestTooBig, "serialrpc request too big"> {};
     struct ErrResponseTooBig : ErrorBase<ErrResponseTooBig, "serialrpc request too big"> {};

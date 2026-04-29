@@ -225,6 +225,44 @@ namespace examplepb {
             && data == other.data;
     }
 
+    void ExampleEvent::marshal(ExampleEvent const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        (void) req;
+        (void) out;
+        (void) err;
+        (void) nesting;
+        (void) stack;
+    }
+
+    ExampleEvent ExampleEvent::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        ExampleEvent msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool ExampleEvent::operator==(const ExampleEvent& other) const {
+        (void) other;
+        return true;
+    }
+
     void CANFrame::marshal(CANFrame const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
         serialrpc::marshal_field(out, req.FrameIdFieldNumber, req.frame_id, err, nesting-1, stack);
         if (err) {

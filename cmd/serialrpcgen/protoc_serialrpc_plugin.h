@@ -2,8 +2,8 @@
 
 #include "google/protobuf/compiler/code_generator.h"
 #include "google/protobuf/io/printer.h"
-#include "CppFormatter.h"
-#include "EchoObjects.h"
+#include "cpp_formatter.h"
+#include "serialrpc_objects.h"
 #include <memory>
 
 namespace application
@@ -151,6 +151,8 @@ namespace application
     };
 
     void generate_server(std::vector<EchoService> const &services, Entities &formatter);
+    void generate_service_server_base(EchoService const &service, Entities &formatter);
+
     void generate_client(std::vector<EchoService> const &services, Entities &formatter);
 
     class ServiceGenerator

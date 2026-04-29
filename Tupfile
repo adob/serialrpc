@@ -1,2 +1,6 @@
-: foreach *.proto |> protoc --plugin=protoc-gen-serialrpc=$HOME/bin/serialrpcgen --serialrpc_out=. -I=. -I=$HOME/deps/amp-embedded-infra-lib/protobuf/echo_attributes %B.proto |> \
-    %B.pb_client.h %B.pb_client.cc %B.pb_server.h %B.pb_server.cc %B.pb_msg.h %B.pb_msg.cc
+: foreach example.proto serialrpc_protocol.proto \
+    |> protoc --plugin=protoc-gen-serialrpc=$HOME/bin/serialrpcgen_plugin --serialrpc_out=generated -I=. -I=$HOME/deps/amp-embedded-infra-lib/protobuf/echo_attributes %B.proto \
+    |> generated/%B.pb_client.h generated/%B.pb_client.cc generated/%B.pb_server.h generated/%B.pb_server.cc generated/%B.pb_msg.h generated/%B.pb_msg.cc
+
+
+: serialrpc.proto |> protoc --cpp_out=generated %B.proto |> generated/%B.pb.h generated/%B.pb.cc

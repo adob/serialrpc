@@ -255,7 +255,20 @@ namespace application
         : public Entity
     {
     public:
-    SourceSnippet(const std::string& snippet);
+        SourceSnippet(const std::string& snippet);
+
+        void PrintHeader(google::protobuf::io::Printer& printer) const override;
+        void PrintSource(google::protobuf::io::Printer& printer, const std::string& scope) const override;
+
+    private:
+        std::string snippet;
+    };
+
+    class HeaderSnippet
+        : public Entity
+    {
+    public:
+        HeaderSnippet(const std::string& snippet);
 
         void PrintHeader(google::protobuf::io::Printer& printer) const override;
         void PrintSource(google::protobuf::io::Printer& printer, const std::string& scope) const override;

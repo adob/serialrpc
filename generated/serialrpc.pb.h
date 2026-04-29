@@ -219,10 +219,18 @@ inline constexpr int kArraySizeFieldNumber = 50002;
 extern ::google::protobuf::internal::ExtensionIdentifier<
     ::google::protobuf::FieldOptions, ::google::protobuf::internal::PrimitiveTypeTraits< ::uint32_t >, 13, false>
     array_size;
-inline constexpr int kServiceIdFieldNumber = 50000;
+inline constexpr int kUuidFieldNumber = 50000;
+extern ::google::protobuf::internal::ExtensionIdentifier<
+    ::google::protobuf::ServiceOptions, ::google::protobuf::internal::StringTypeTraits, 9, false>
+    uuid;
+inline constexpr int kMajorVersionFieldNumber = 50001;
 extern ::google::protobuf::internal::ExtensionIdentifier<
     ::google::protobuf::ServiceOptions, ::google::protobuf::internal::PrimitiveTypeTraits< ::uint32_t >, 13, false>
-    service_id;
+    major_version;
+inline constexpr int kMinorVersionFieldNumber = 50002;
+extern ::google::protobuf::internal::ExtensionIdentifier<
+    ::google::protobuf::ServiceOptions, ::google::protobuf::internal::PrimitiveTypeTraits< ::uint32_t >, 13, false>
+    minor_version;
 inline constexpr int kMethodIdFieldNumber = 50000;
 extern ::google::protobuf::internal::ExtensionIdentifier<
     ::google::protobuf::MethodOptions, ::google::protobuf::internal::PrimitiveTypeTraits< ::uint32_t >, 13, false>
