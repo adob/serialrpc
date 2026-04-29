@@ -5,6 +5,6 @@
 CPMDeclarePackage(baselib
   NAME baselib
   VERSION 0.0.0
-  GIT_TAG c6ea2af91ee819a343e37c8f122ec350c065bb96
+  GIT_TAG 6a9ae65741b139632811e40b40f798e8e1f86ad9
   GITHUB_REPOSITORY adob/baselib
 )
