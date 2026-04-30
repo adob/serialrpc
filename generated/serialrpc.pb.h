@@ -54,10 +54,10 @@ struct TableStruct_serialrpc_2eproto {
 extern "C" {
 extern const ::google::protobuf::internal::DescriptorTable descriptor_table_serialrpc_2eproto;
 }  // extern "C"
-class Nothing;
-struct NothingDefaultTypeInternal;
-extern NothingDefaultTypeInternal _Nothing_default_instance_;
-extern const ::google::protobuf::internal::ClassDataFull Nothing_class_data_;
+class void_;
+struct void_DefaultTypeInternal;
+extern void_DefaultTypeInternal _void__default_instance_;
+extern const ::google::protobuf::internal::ClassDataFull void__class_data_;
 namespace google {
 namespace protobuf {
 }  // namespace protobuf
@@ -69,29 +69,29 @@ namespace protobuf {
 
 // -------------------------------------------------------------------
 
-class Nothing final : public ::google::protobuf::internal::ZeroFieldsBase
-/* @@protoc_insertion_point(class_definition:Nothing) */ {
+class void_ final : public ::google::protobuf::internal::ZeroFieldsBase
+/* @@protoc_insertion_point(class_definition:void) */ {
  public:
-  inline Nothing() : Nothing(nullptr) {}
+  inline void_() : void_(nullptr) {}
 
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-  void operator delete(Nothing* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
+  void operator delete(void_* PROTOBUF_NONNULL msg, ::std::destroying_delete_t) {
     SharedDtor(*msg);
-    ::google::protobuf::internal::SizedDelete(msg, sizeof(Nothing));
+    ::google::protobuf::internal::SizedDelete(msg, sizeof(void_));
   }
 #endif
 
   template <typename = void>
-  explicit PROTOBUF_CONSTEXPR Nothing(::google::protobuf::internal::ConstantInitialized);
+  explicit PROTOBUF_CONSTEXPR void_(::google::protobuf::internal::ConstantInitialized);
 
-  inline Nothing(const Nothing& from) : Nothing(nullptr, from) {}
-  inline Nothing(Nothing&& from) noexcept
-      : Nothing(nullptr, ::std::move(from)) {}
-  inline Nothing& operator=(const Nothing& from) {
+  inline void_(const void_& from) : void_(nullptr, from) {}
+  inline void_(void_&& from) noexcept
+      : void_(nullptr, ::std::move(from)) {}
+  inline void_& operator=(const void_& from) {
     CopyFrom(from);
     return *this;
   }
-  inline Nothing& operator=(Nothing&& from) noexcept {
+  inline void_& operator=(void_&& from) noexcept {
     if (this == &from) return *this;
     if (::google::protobuf::internal::CanMoveWithInternalSwap(GetArena(), from.GetArena())) {
       InternalSwap(&from);
@@ -119,13 +119,13 @@ class Nothing final : public ::google::protobuf::internal::ZeroFieldsBase
   static const ::google::protobuf::Reflection* PROTOBUF_NONNULL GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const Nothing& default_instance() {
-    return *reinterpret_cast<const Nothing*>(
-        &_Nothing_default_instance_);
+  static const void_& default_instance() {
+    return *reinterpret_cast<const void_*>(
+        &_void__default_instance_);
   }
   static constexpr int kIndexInFileMessages = 0;
-  friend void swap(Nothing& a, Nothing& b) { a.Swap(&b); }
-  inline void Swap(Nothing* PROTOBUF_NONNULL other) {
+  friend void swap(void_& a, void_& b) { a.Swap(&b); }
+  inline void Swap(void_* PROTOBUF_NONNULL other) {
     if (other == this) return;
     if (::google::protobuf::internal::CanUseInternalSwap(GetArena(), other->GetArena())) {
       InternalSwap(other);
@@ -133,7 +133,7 @@ class Nothing final : public ::google::protobuf::internal::ZeroFieldsBase
       ::google::protobuf::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(Nothing* PROTOBUF_NONNULL other) {
+  void UnsafeArenaSwap(void_* PROTOBUF_NONNULL other) {
     if (other == this) return;
     ABSL_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -141,15 +141,15 @@ class Nothing final : public ::google::protobuf::internal::ZeroFieldsBase
 
   // implements Message ----------------------------------------------
 
-  Nothing* PROTOBUF_NONNULL New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
-    return ::google::protobuf::internal::ZeroFieldsBase::DefaultConstruct<Nothing>(arena);
+  void_* PROTOBUF_NONNULL New(::google::protobuf::Arena* PROTOBUF_NULLABLE arena = nullptr) const {
+    return ::google::protobuf::internal::ZeroFieldsBase::DefaultConstruct<void_>(arena);
   }
   using ::google::protobuf::internal::ZeroFieldsBase::CopyFrom;
-  inline void CopyFrom(const Nothing& from) {
+  inline void CopyFrom(const void_& from) {
     ::google::protobuf::internal::ZeroFieldsBase::CopyImpl(*this, from);
   }
   using ::google::protobuf::internal::ZeroFieldsBase::MergeFrom;
-  void MergeFrom(const Nothing& from) {
+  void MergeFrom(const void_& from) {
     ::google::protobuf::internal::ZeroFieldsBase::MergeImpl(*this, from);
   }
 
@@ -160,14 +160,14 @@ class Nothing final : public ::google::protobuf::internal::ZeroFieldsBase
  private:
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "Nothing"; }
+  static ::absl::string_view FullMessageName() { return "void"; }
 
  protected:
-  explicit Nothing(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
-  Nothing(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Nothing& from);
-  Nothing(
-      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, Nothing&& from) noexcept
-      : Nothing(arena) {
+  explicit void_(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
+  void_(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const void_& from);
+  void_(
+      ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, void_&& from) noexcept
+      : void_(arena) {
     *this = ::std::move(from);
   }
   const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL GetClassData() const PROTOBUF_FINAL;
@@ -183,7 +183,7 @@ class Nothing final : public ::google::protobuf::internal::ZeroFieldsBase
   // nested types ----------------------------------------------------
 
   // accessors -------------------------------------------------------
-  // @@protoc_insertion_point(class_scope:Nothing)
+  // @@protoc_insertion_point(class_scope:void)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
@@ -201,7 +201,7 @@ class Nothing final : public ::google::protobuf::internal::ZeroFieldsBase
   friend struct ::TableStruct_serialrpc_2eproto;
 };
 
-extern const ::google::protobuf::internal::ClassDataFull Nothing_class_data_;
+extern const ::google::protobuf::internal::ClassDataFull void__class_data_;
 
 // ===================================================================
 
@@ -245,7 +245,7 @@ extern ::google::protobuf::internal::ExtensionIdentifier<
 #endif  // __GNUC__
 // -------------------------------------------------------------------
 
-// Nothing
+// void_
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop

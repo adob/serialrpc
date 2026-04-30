@@ -3,10 +3,9 @@
 `serialrpc` is a small C++23 RPC runtime and code generator for typed
 request/reply calls and server-pushed events over an ordered byte stream.
 
-The library is intended for host-to-device links such as USB CDC ACM.
-A `.proto` file defines messages and services;
-the `serialrpcgen` protoc plugin generates compact message structs plus client
-stubs and server base classes.
+The library is intended for host-to-device links such as USB CDC ACM. A `.proto`
+file defines messages and services; the `serialrpcgen` protoc plugin generates
+compact message structs plus client stubs and server base classes.
 
 ## What is Included
 
@@ -110,8 +109,8 @@ sum_stub.subscribe_sum_events(
 ```
 
 Server generation produces abstract service base classes. Implement the virtual
-methods, construct `serialrpc::Server` with those services, and call `accept`
-or `serve`:
+methods, construct `serialrpc::Server` with those services, and call `accept` or
+`serve`:
 
 ```cpp
 struct Summer : examplepb::SumServiceBase {
@@ -173,8 +172,8 @@ The client validates the protocol version and matches services by UUID and
 version. It assigns contiguous runtime endpoint IDs from the advertised service
 order and endpoint counts.
 
-To close a running session, the client writes request ID `0` as a varuint32.
-The server responds with:
+To close a running session, the client writes request ID `0` as a varuint32. The
+server responds with:
 
 ```text
 server -> client: 0xFA  ServerGoodbye
@@ -194,8 +193,8 @@ Endpoint IDs sent by the client are one-based. The server subtracts one before
 indexing its dispatch table. Generated client stubs calculate endpoint IDs from
 the service offset learned during the hello exchange.
 
-For methods with a `void` request, there is no request body after the
-endpoint ID.
+For methods with a `void` request, there is no request body after the endpoint
+ID.
 
 Streaming-response methods are represented as subscriptions. The generated
 client writes the endpoint ID, a one-byte enable flag, and then the optional
@@ -207,8 +206,8 @@ uint8 enabled       # 1 to subscribe, 0 to unsubscribe
 encoded request     # present for subscribe requests
 ```
 
-For subscriptions whose request type is `void`, there is no request body
-after the enable flag.
+For subscriptions whose request type is `void`, there is no request body after
+the enable flag.
 
 Subscription setup and teardown receive a normal `Reply` acknowledgement.
 
@@ -251,8 +250,8 @@ encoded event message
 ```
 
 Generated server event helpers write `event_id + 1`, matching the client-side
-one-based endpoint IDs. Events whose response type is `void` contain no
-message body after the event ID.
+one-based endpoint IDs. Events whose response type is `void` contain no message
+body after the event ID.
 
 An error reply is:
 
@@ -264,6 +263,24 @@ chunked UTF-8 error text
 `Log` messages carry a varuint32 byte count followed by that many log bytes.
 
 ## Message Encoding
+
+The message encoding is intentionally close to protocol buffer wire encoding:
+each field is identified by a field number plus a small wire type, scalar
+numeric values use varints or fixed-width little-endian payloads, and fields
+with default values are omitted. This lets `.proto` schemas describe the data
+model while keeping the runtime small enough for byte-stream transports.
+
+It is not protobuf wire-compatible. The main differences are:
+
+- Nested and top-level messages are terminated by explicit `Start` / `End` tags
+  instead of length-delimited embedded message payloads.
+- `bool` is encoded as a presence-only field: `true` is represented by the tag
+  alone, and `false` is omitted.
+- Signed `int32` and `int64` fields are always ZigZag-encoded varints, matching
+  protobuf `sint32` / `sint64` payloads rather than protobuf `int32` / `int64`
+  payloads for negative values.
+- RPC framing, request IDs, replies, events, logs, and errors are serialrpc
+  protocol bytes around the encoded messages; they are not protobuf messages.
 
 Generated encoders write only fields whose value is not the default value.
 Numeric zero, `false`, and empty byte/string fields are omitted.
@@ -297,9 +314,10 @@ bytes/string     varuint32 length followed by raw bytes
 message          Start tag, nested fields, End tag
 ```
 
-Top-level messages also end with an `End` tag. Unknown fields can be skipped
-from their wire type, so newer senders can add fields that older receivers
-ignore.
+Encoded message bodies end with an `End` tag. Nested message fields also begin
+with a `Start` tag; top-level messages are not wrapped in `Start`. Unknown
+fields can be skipped from their wire type, so newer senders can add fields that
+older receivers ignore.
 
 Bounded byte and string fields use `bytes_size` and `string_size` options and
 are generated as fixed-capacity `lib::InlineString<N>` values. The plugin also
@@ -325,8 +343,8 @@ defines `array_size` for bounded repeated fields.
 
 ## Build and Test
 
-This project is built with CMake and uses CPM. The current local build notes use
-a checked-out `baselib` source tree:
+This project can be built with CMake and
+[CPM](https://github.com/cpm-cmake/cpm.cmake):
 
 ```sh
 cmake -S . -B build -DBUILD_TESTING=ON # -DCPM_baselib_SOURCE=$HOME/deps/baselib
@@ -334,5 +352,5 @@ cmake --build build
 cd build && ctest --output-on-failure
 ```
 
-If you do not provide `DCPM_baselib_SOURCE`, CPM will use the pinned
-`adob/baselib` package from `package-lock.cmake`.
+If you set the `DCPM_baselib_SOURCE` flag, CPM will use the provided path
+instead of downloading the `adob/baselib` dependency from GitHub.
