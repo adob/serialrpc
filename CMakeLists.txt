@@ -19,6 +19,32 @@ CPMAddPackage(
   GIT_TAG 36f6c17ea5fcf481d9d6849566a980ca82b7d6e3
 )
 
+CPMFindPackage(
+  NAME protobuf
+  VERSION 32.1.0
+  GITHUB_REPOSITORY protocolbuffers/protobuf
+  GIT_TAG v32.1
+  OPTIONS
+    "protobuf_BUILD_TESTS OFF"
+    "protobuf_BUILD_CONFORMANCE OFF"
+    "protobuf_BUILD_EXAMPLES OFF"
+)
+
+set(SERIALRPC_BOOST_VERSION "1.87.0" CACHE STRING "Boost version used by serialrpc")
+set(SERIALRPC_BOOST_COMPONENTS "unordered" CACHE STRING "Boost components required by serialrpc")
+
+CPMFindPackage(
+  NAME Boost
+  VERSION ${SERIALRPC_BOOST_VERSION} # Versions less than 1.85.0 may need patches for installation targets.
+  URL https://github.com/boostorg/boost/releases/download/boost-${SERIALRPC_BOOST_COMPONENTS}/boost-${SERIALRPC_BOOST_COMPONENTS}-cmake.tar.xz
+  URL_HASH SHA256=7da75f171837577a52bbf217e17f8ea576c7c246e4594d617bfde7fafd408be5
+  FIND_PACKAGE_ARGUMENTS "CONFIG;COMPONENTS;${SERIALRPC_BOOST_COMPONENTS}"
+  OPTIONS "BOOST_ENABLE_CMAKE ON" "BOOST_SKIP_INSTALL_RULES ON" # Set `OFF` for installation
+          "BUILD_SHARED_LIBS OFF"
+)
+
+set(SERIALRPC_PROTOBUF_PROTO_DIR ${protobuf_SOURCE_DIR}/src)
+
 file(GLOB SOURCES 
     ${CMAKE_CURRENT_LIST_DIR}/*.cc
 )
@@ -46,15 +72,42 @@ get_filename_component(_parent_dir
   REALPATH
 )
 
+# CPM checks this repo out as serialrpc-src, but public headers use includes
+# like "serialrpc/encoding.h". Create a build-tree include prefix that matches.
+set(SERIALRPC_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/include)
+file(MAKE_DIRECTORY ${SERIALRPC_INCLUDE_DIR})
+if(NOT EXISTS ${SERIALRPC_INCLUDE_DIR}/serialrpc)
+  file(CREATE_LINK
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${SERIALRPC_INCLUDE_DIR}/serialrpc
+    SYMBOLIC
+  )
+endif()
+
 target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${SERIALRPC_INCLUDE_DIR}>
   $<BUILD_INTERFACE:${_parent_dir}>
   $<INSTALL_INTERFACE:include>
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC baselib::baselib)
 
+set(SERIALRPC_BOOST_TARGETS Boost::headers)
+foreach(boost_component IN LISTS SERIALRPC_BOOST_COMPONENTS)
+  if(TARGET "Boost::${boost_component}")
+    list(APPEND SERIALRPC_BOOST_TARGETS "Boost::${boost_component}")
+  endif()
+endforeach()
+target_link_libraries(${PROJECT_NAME} PUBLIC ${SERIALRPC_BOOST_TARGETS})
+
 set(_serialrpc_root_dir ${CMAKE_CURRENT_LIST_DIR})
 add_subdirectory(cmd/serialrpcgen)
+
+if(TARGET serialrpcgen_plugin)
+  target_include_directories(serialrpcgen_plugin PRIVATE
+    ${SERIALRPC_INCLUDE_DIR}
+  )
+endif()
 
 # Find protoc (protobuf is loaded by cmd/serialrpcgen)
 if(TARGET protobuf::protoc)
@@ -77,6 +130,7 @@ add_custom_command(
     --plugin=protoc-gen-serialrpc=$<TARGET_FILE:serialrpcgen_plugin>
     --serialrpc_out=${CMAKE_CURRENT_LIST_DIR}/generated
     -I ${CMAKE_CURRENT_LIST_DIR}
+    -I ${SERIALRPC_PROTOBUF_PROTO_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
   DEPENDS
     ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
@@ -101,6 +155,7 @@ if(BUILD_TESTING)
       --plugin=protoc-gen-serialrpc=$<TARGET_FILE:serialrpcgen_plugin>
       --serialrpc_out=${CMAKE_CURRENT_LIST_DIR}/generated
       -I ${CMAKE_CURRENT_LIST_DIR}
+      -I ${SERIALRPC_PROTOBUF_PROTO_DIR}
       ${CMAKE_CURRENT_LIST_DIR}/example.proto
     DEPENDS
       ${CMAKE_CURRENT_LIST_DIR}/example.proto
