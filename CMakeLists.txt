@@ -16,7 +16,7 @@ CPMAddPackage(
   NAME baselib
   GITHUB_REPOSITORY adob/baselib
   VERSION 0.0.0
-  GIT_TAG cd8922fc0f512fe19bdab4d75becc86d1ce10573
+  GIT_TAG 36f6c17ea5fcf481d9d6849566a980ca82b7d6e3
 )
 
 file(GLOB SOURCES 

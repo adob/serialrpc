@@ -29,11 +29,13 @@ namespace serialrpc {
     };
     
     struct ErrReply : lib::Error {
+        str io_name;
         str service_name;
         str procedure_name;
         str msg;
-        ErrReply(str service_name, str procedure_name, str msg) : 
-              service_name(service_name)
+        ErrReply(str io_name, str service_name, str procedure_name, str msg) : 
+              io_name(io_name)
+            , service_name(service_name)
             , procedure_name(procedure_name)
             , msg(msg)
             {}
@@ -46,6 +48,16 @@ namespace serialrpc {
     struct ErrBadMessage     : ErrorBase<ErrBadMessage, "serialrpc bad message"> {};
     struct ErrFatal          : ErrorBase<ErrFatal, "serialrpc fatal error"> {};
     struct ErrClosed         : ErrorBase<ErrClosed, "serialrpc connection closed"> {};
-    struct ErrUnsolicitedServerGoodbye : ErrorBase<ErrUnsolicitedServerGoodbye, "serialrpc unsolicited server goodbye"> {};
+    struct ErrUnsolicitedServerGoodbye : ErrorBase<ErrUnsolicitedServerGoodbye, "unsolicited server goodbye"> {};
     struct ErrCorruption     : ErrorBase<ErrCorruption, "serialrpc I/O corruption"> {};
+
+    struct Err : ErrorBase<Err> {
+        io::WriterTo const *details = nil;
+        const Error *err = nil;
+
+        Err(io::WriterTo const &details) : details(&details) {}
+        Err(io::WriterTo const &details, const Error &err) :  details(&details), err(&err) {}
+
+        void fmt(io::Writer &out, error err) const override;
+    } ;
 }

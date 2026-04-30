@@ -33,11 +33,12 @@ namespace serialrpc {
         str name;
     } ;
 
-    std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, std::initializer_list<Stub*> service_infos, error err);
+    std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, str name, std::initializer_list<Stub*> service_infos, error err);
     std::shared_ptr<Client> connect(str device_path, std::initializer_list<Stub*> service_infos, error err);
 
     struct Client {
         std::shared_ptr<lib::io::ReaderWriter> conn;
+        String name;
         sync::Mutex event_callbacks_mtx;
         boost::unordered_flat_map<uint32, std::function<void(lib::io::ReaderWriter &, error)>> event_callbacks;
 
@@ -350,6 +351,6 @@ namespace serialrpc {
         void handle_log(error err);
         void handle_event(uint32 event_id, error err);
 
-        friend std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, std::initializer_list<Stub*> service_infos, error err);
+        friend std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, str name, std::initializer_list<Stub*> service_infos, error err);
     } ;
 }

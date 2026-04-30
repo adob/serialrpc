@@ -14,11 +14,11 @@
 
 namespace examplepb {
     struct SumServiceBase : SumService {
-        serial::Conn* event_conn = nullptr;
+        lib::serial::Conn* event_conn = nullptr;
 
-        static void dispatch_sum(void *service, serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_sum(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
-        static void dispatch_sum_events(void *service, serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_sum_events(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
         void send_sum_events(SumEvent const &msg);
 
@@ -35,9 +35,9 @@ namespace examplepb {
     };
 
     struct CANServiceBase : CANService {
-        serial::Conn* event_conn = nullptr;
+        lib::serial::Conn* event_conn = nullptr;
 
-        static void dispatch_send(void *service, serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_send(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
         static constexpr std::array<serialrpc::DispatchFunc, 1> dispatch_table = {
             dispatch_send,
@@ -49,23 +49,23 @@ namespace examplepb {
     };
 
     struct ExampleServiceBase : ExampleService {
-        serial::Conn* event_conn = nullptr;
+        lib::serial::Conn* event_conn = nullptr;
 
-        static void dispatch_say_hello(void *service, serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_say_hello(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
-        static void dispatch_example_event1(void *service, serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_example_event1(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
         void send_example_event1();
 
         int example_event1_id = -1;
 
-        static void dispatch_example_event2(void *service, serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_example_event2(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
         void send_example_event2(ExampleEvent const &msg);
 
         int example_event2_id = -1;
 
-        static void dispatch_example_event3(void *service, serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_example_event3(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
         void send_example_event3();
 

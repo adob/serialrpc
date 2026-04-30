@@ -7,7 +7,7 @@
 using namespace lib;
 
 namespace examplepb {
-    void SumServiceBase::dispatch_sum(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
+    void SumServiceBase::dispatch_sum(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         SumRequest msg = serialrpc::unmarshal<SumRequest>(conn, err);
         if (err) {
             return;
@@ -23,7 +23,7 @@ namespace examplepb {
         }
     }
 
-    void SumServiceBase::dispatch_sum_events(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
+    void SumServiceBase::dispatch_sum_events(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         SumServiceBase *s = static_cast<SumServiceBase*>(service);
         bool enabled = conn.read_byte(err);
         if (err) {
@@ -66,7 +66,7 @@ namespace examplepb {
         this->event_conn = nullptr;
     }
 
-    void CANServiceBase::dispatch_send(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
+    void CANServiceBase::dispatch_send(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         CANFrame msg = serialrpc::unmarshal<CANFrame>(conn, err);
         if (err) {
             return;
@@ -90,7 +90,7 @@ namespace examplepb {
         this->event_conn = nullptr;
     }
 
-    void ExampleServiceBase::dispatch_say_hello(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
+    void ExampleServiceBase::dispatch_say_hello(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         if (err) {
             return;
         }
@@ -105,7 +105,7 @@ namespace examplepb {
         }
     }
 
-    void ExampleServiceBase::dispatch_example_event1(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
+    void ExampleServiceBase::dispatch_example_event1(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         ExampleServiceBase *s = static_cast<ExampleServiceBase*>(service);
         bool enabled = conn.read_byte(err);
         if (err) {
@@ -138,7 +138,7 @@ namespace examplepb {
         serialrpc::send_event(*this->event_conn, this->example_event1_id);
     }
 
-    void ExampleServiceBase::dispatch_example_event2(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
+    void ExampleServiceBase::dispatch_example_event2(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         ExampleServiceBase *s = static_cast<ExampleServiceBase*>(service);
         bool enabled = conn.read_byte(err);
         if (err) {
@@ -171,7 +171,7 @@ namespace examplepb {
         serialrpc::send_event(*this->event_conn, this->example_event2_id, msg);
     }
 
-    void ExampleServiceBase::dispatch_example_event3(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
+    void ExampleServiceBase::dispatch_example_event3(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         ExampleServiceBase *s = static_cast<ExampleServiceBase*>(service);
         bool enabled = conn.read_byte(err);
         if (err) {

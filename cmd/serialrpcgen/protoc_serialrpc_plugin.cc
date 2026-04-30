@@ -2138,7 +2138,7 @@ switch (methodId)
         auto serverBase = std::make_shared<Struct>(service.name + "Base");
         
         serverBase->Parent(service.name);
-        serverBase->Add(std::make_shared<DataMember>("event_conn", "serial::Conn*", "nullptr"));
+        serverBase->Add(std::make_shared<DataMember>("event_conn", "lib::serial::Conn*", "nullptr"));
 
         int count = 0;
         for (auto &&method : service.methods) {
@@ -2207,7 +2207,7 @@ switch (methodId)
 
                 auto func1 = std::make_shared<Function>("dispatch_" + method.name, result.str(), "void", Function::fStatic);
                 func1->Parameter("void *service");
-                func1->Parameter("serial::Conn &conn");
+                func1->Parameter("lib::serial::Conn &conn");
                 func1->Parameter("int rpc_id");
                 func1->Parameter("lib::error err");
 
@@ -2277,7 +2277,7 @@ switch (methodId)
 
                 auto func = std::make_shared<Function>("dispatch_" + method.name, result.str(), "void", Function::fStatic);
                 func->Parameter("void *service");
-                func->Parameter("serial::Conn &conn");
+                func->Parameter("lib::serial::Conn &conn");
                 func->Parameter("int rpc_id");
                 func->Parameter("lib::error err");
                 
