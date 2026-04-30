@@ -11,7 +11,12 @@ CPMFindPackage(
   VERSION 32.1.0
   GITHUB_REPOSITORY protocolbuffers/protobuf
   GIT_TAG v32.1
+  OPTIONS
+    "protobuf_BUILD_TESTS OFF"
+    "protobuf_BUILD_CONFORMANCE OFF"
+    "protobuf_BUILD_EXAMPLES OFF"
 )
+
 
 get_filename_component(_serialrpc_parent_dir
   "${_serialrpc_root_dir}/.."
