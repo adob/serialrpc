@@ -282,7 +282,7 @@ void test_unsolicited_server_goodbye_wakes_pending_call(testing::T &t) {
 
     summer.wait_for_request();
 
-    server.send_goodbye(error::panic);
+    server.send_goodbye(server_conn,error::panic);
     call.join();
 
     summer.release();
@@ -308,7 +308,7 @@ void test_unsolicited_server_goodbye_without_pending_calls_fails_session(testing
     examplepb::SumServiceStub sum_stub;
     std::shared_ptr<Client> client = serialrpc::connect(client_conn, {&sum_stub}, error::panic);
 
-    server.send_goodbye(error::panic);
+    server.send_goodbye(server_conn,error::panic);
 
     ErrorRecorder session_err;
     client->wait(session_err);
@@ -337,7 +337,7 @@ void test_call_after_server_goodbye_fails_without_hanging(testing::T &t) {
     auto sum_stub = std::make_shared<examplepb::SumServiceStub>();
     std::shared_ptr<Client> client = serialrpc::connect(client_conn, {sum_stub.get()}, error::panic);
 
-    server.send_goodbye(error::panic);
+    server.send_goodbye(server_conn,error::panic);
     client->wait(error::ignore);
 
     sync::atomic<bool> call_done = false;

@@ -16,21 +16,19 @@ using namespace lib;
 using namespace serialrpc;
 
 static void print_line(byte b, io::ReaderWriter &conn, error err) {
-    String msg;
-    msg += b;
+    fmt::fprintf(os::stderr, "serialrpc raw log: ");
     for (;;) {    
-        byte b = conn.read_byte(err);
-        if (err) {
+        os::stderr.write(str(&b, 1), error::ignore);
+        if (b == '\n') {
             return;
         }
 
-        msg += b;
-
-        if (b == '\n') {
-            break;
+        b = conn.read_byte(err);
+        if (err) {
+            os::stderr.write("\n", error::ignore);
+            return;
         }
     }
-    fmt::fprintf(os::stderr, "serialrpc raw log: %q\n", msg);
 }
 
 void serialrpc::Client::register_event_callback(uint32 event_id, std::function<void(lib::io::ReaderWriter &, error)> cb) {

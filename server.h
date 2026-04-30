@@ -28,11 +28,9 @@ namespace serialrpc {
     void send_code(serial::Conn &conn, ServerMessageType code, error err);
 
     struct ServerBase {
-        serial::Conn *conn = nil;
-
         void serve(serial::Listener &listener, error err);
         void accept(serial::Conn &conn, error err);
-        void send_goodbye(error err);
+        void send_goodbye(serial::Conn &conn, error err);
 
       protected:
         virtual void handle_request(uint32 rpc_id, serial::Conn &conn, error err) = 0;
@@ -40,9 +38,9 @@ namespace serialrpc {
 
         void stop_accept();
         void server_hello(serial::Conn &conn, error err);
-        void handle_goodbye(error err);
+        void handle_goodbye(serial::Conn &conn, error err);
 
-        virtual void send_services_descriptions(error err) = 0;
+        virtual void send_services_descriptions(serial::Conn &conn, error err) = 0;
 
         friend ServerErrorHandler;
     } ;
@@ -81,17 +79,17 @@ namespace serialrpc {
         }
 
         template <typename T>
-        void send_service_description(T const &service, error err) {
+        void send_service_description(serial::Conn &conn,T const &service, error err) {
             Stack stack;
-            marshal_field(*this->conn, serialrpcpb::ServerHello::ServicesFieldNumber, service, err, MaxNesting, stack);
+            marshal_field(conn, serialrpcpb::ServerHello::ServicesFieldNumber, service, err, MaxNesting, stack);
         }
 
-        void send_services_descriptions(error err) override {
+        void send_services_descriptions(serial::Conn &conn, error err) override {
             Server &s = *this;
             // in C++26: template for (auto &&service : service_refs) ...
             std::apply(
                 [&](auto&&... service) {
-                    ((s.send_service_description(to_service_def<std::remove_cvref_t<decltype(service)>>(), err), !err) && ...);
+                    ((s.send_service_description(conn, to_service_def<std::remove_cvref_t<decltype(service)>>(), err), !err) && ...);
                 },
                 std::forward<decltype(service_refs)>(service_refs)
             );

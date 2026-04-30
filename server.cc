@@ -49,14 +49,14 @@ void ServerErrorHandler::handle(Error &rpc_error) {
     s.conn.flush(s.err);
 }
 
-void serialrpc::ServerBase::handle_goodbye(error err) {
+void serialrpc::ServerBase::handle_goodbye(serial::Conn &conn, error err) {
     ServerBase &s = *this;
 
     {
-        sync::Lock lock(s.conn->write_mtx);
+        sync::Lock lock(conn.write_mtx);
 
-        s.conn->write_byte(byte(ServerGoodbye), err);
-        s.conn->flush(err);
+        conn.write_byte(byte(ServerGoodbye), err);
+        conn.flush(err);
     }
     if (err) {
         return;
@@ -94,7 +94,6 @@ void serialrpc::send_event(serial::Conn &conn, uint32 event_id) {
 void ServerBase::server_hello(serial::Conn &conn, error err) {
     ServerBase &s = *this;
     sync::Lock lock(conn.write_mtx);
-    s.conn = &conn;
     
     conn.write_byte(byte(ServerHello), err);
     if (err) {
@@ -111,12 +110,12 @@ void ServerBase::server_hello(serial::Conn &conn, error err) {
         return;
     }
 
-    s.send_services_descriptions(err);
+    s.send_services_descriptions(conn, err);
     if (err) {
         return;
     }
 
-    s.conn->write_byte(byte(Tag::End), err);
+    conn.write_byte(byte(Tag::End), err);
     if (err) {
         return;
     }
@@ -151,7 +150,7 @@ void ServerBase::accept(serial::Conn &conn, error err) {
         }
 
         if (rpc_id == 0) {
-            s.handle_goodbye(err);
+            s.handle_goodbye(conn, err);
             if (err) {
                 return;
             }
@@ -189,9 +188,6 @@ void ServerBase::stop_accept() {
     ServerBase &s = *this;
     
     s.unsubscribe_all();
-
-    sync::Lock lock(s.conn->write_mtx);
-    s.conn = nil;
 }
 
 void serialrpc::send_reply_void(serial::Conn &conn, error err) {
@@ -207,17 +203,17 @@ void serialrpc::send_reply_void(serial::Conn &conn, error err) {
         return;
     }
 }
-void serialrpc::ServerBase::send_goodbye(error err) {
+void serialrpc::ServerBase::send_goodbye(serial::Conn &conn, error err) {
     ServerBase &s = *this;
-    if (s.conn == nil) {
-        return;
-    }
-    sync::Lock lock(s.conn->write_mtx);
-    s.conn->write_byte(byte(ServerGoodbye), err);
+
+    s.unsubscribe_all();
+
+    sync::Lock lock(conn.write_mtx);
+    conn.write_byte(byte(ServerGoodbye), err);
     if (err) {
         return;
     }
-    s.conn->flush(err);
+    conn.flush(err);
     if (err) {
         return;
     }
