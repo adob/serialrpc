@@ -63,6 +63,7 @@ namespace examplepb {
 
     void SumServiceBase::unsubscribe_all() {
         this->unsubscribe_sum_events(error::ignore);
+        this->event_conn = nullptr;
     }
 
     void CANServiceBase::dispatch_send(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
@@ -85,7 +86,9 @@ namespace examplepb {
         return this;
     }
 
-    void CANServiceBase::unsubscribe_all() {}
+    void CANServiceBase::unsubscribe_all() {
+        this->event_conn = nullptr;
+    }
 
     void ExampleServiceBase::dispatch_say_hello(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
         serialrpc::skip(conn, err);
@@ -213,5 +216,6 @@ namespace examplepb {
         this->unsubscribe_example_event1(error::ignore);
         this->unsubscribe_example_event2(error::ignore);
         this->unsubscribe_example_event3(error::ignore);
+        this->event_conn = nullptr;
     }
 }

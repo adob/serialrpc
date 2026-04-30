@@ -2316,8 +2316,8 @@ switch (methodId)
                 }
 
                 printer.Print("this->unsubscribe_$method$(error::ignore);\n", "method", method.name);
-
             }
+            printer.Print("this->event_conn = nullptr;\n");
         }
         func = std::make_shared<Function>("unsubscribe_all", result.str(), "void", 0);
         serverBase->Add(func);
@@ -2331,11 +2331,9 @@ switch (methodId)
     }
     
     void generate_server(std::vector<EchoService> const &services, Entities &formatter) {
-
         for (auto &&service : services) {
              generate_service_server_base(service, formatter);
         }
-
 
         return;
 

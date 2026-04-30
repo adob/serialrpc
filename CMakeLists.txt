@@ -11,13 +11,12 @@ project(serialrpc VERSION 0.0.0 LANGUAGES CXX)
 include(CTest)
 
 include(cmake/CPM.cmake)
-CPMUsePackageLock(package-lock.cmake)
 
 CPMAddPackage(
   NAME baselib
   GITHUB_REPOSITORY adob/baselib
   VERSION 0.0.0
-  GIT_TAG 6a9ae65741b139632811e40b40f798e8e1f86ad9
+  GIT_TAG 6470a8516b529194700ccf7eabe503936488b205
 )
 
 file(GLOB SOURCES 
@@ -41,11 +40,6 @@ add_library(${PROJECT_NAME} STATIC
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
-#set_target_properties(baselib PROPERTIES
-  #CXX_STANDARD 26
-  #CXX_STANDARD_REQUIRED YES
-  #CXX_EXTENSIONS NO
-#)
 
 get_filename_component(_parent_dir
   "${CMAKE_CURRENT_LIST_DIR}/.."

@@ -36,6 +36,7 @@ void serialrpc::Client::register_event_callback(uint32 event_id, std::function<v
     sync::Lock lock(c.event_callbacks_mtx);
     c.event_callbacks[event_id] = cb;
 }
+
 void serialrpc::Client::unregister_event_callback(uint32 event_id) {
     Client &c = *this;
     sync::Lock lock(c.event_callbacks_mtx);
