@@ -91,7 +91,6 @@ namespace examplepb {
     }
 
     void ExampleServiceBase::dispatch_say_hello(void *service, serial::Conn &conn, int rpc_id, lib::error err) {
-        serialrpc::skip(conn, err);
         if (err) {
             return;
         }
@@ -114,7 +113,6 @@ namespace examplepb {
         }
         serialrpc::ServerErrorHandler handler_err(conn, err);
         if (enabled) {
-            serialrpc::skip(conn, err);
             if (err) {
                 return;
             }
@@ -148,7 +146,6 @@ namespace examplepb {
         }
         serialrpc::ServerErrorHandler handler_err(conn, err);
         if (enabled) {
-            serialrpc::skip(conn, err);
             if (err) {
                 return;
             }

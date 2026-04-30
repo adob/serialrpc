@@ -34,6 +34,7 @@ namespace serialrpc {
     } ;
 
     std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, std::initializer_list<Stub*> service_infos, error err);
+    std::shared_ptr<Client> connect(str device_path, std::initializer_list<Stub*> service_infos, error err);
 
     struct Client {
         std::shared_ptr<lib::io::ReaderWriter> conn;
@@ -155,11 +156,6 @@ namespace serialrpc {
                     fail(lock);
                     return {};
                 }
-                conn->write_byte(Tag::End, err);
-                if (err) {
-                    fail(lock);
-                    return {};
-                }
                 finish_request(err);    
                 if (err) {
                     fail(lock);
@@ -222,15 +218,6 @@ namespace serialrpc {
                     fail(lock);
                     return;
                 }
-                conn->write_byte(Tag::End, err);
-                if (err) {
-                    fail(lock);
-                    return;
-                }
-                if (err) {
-                    fail(lock);
-                    return;
-                }
                 finish_request(err);    
                 if (err) {
                     fail(lock);
@@ -244,7 +231,6 @@ namespace serialrpc {
 
         template <typename T>
         void subscribe(uint32 event_id, str service_name, str procedure_name, T const &req, error err) {
-            printf("subscribe with event_id %u\n", event_id);
             Client &c = *this;
             CallData call_data = {
                 .client    = this,
@@ -298,11 +284,6 @@ namespace serialrpc {
                 if (err) {
                     c.fail(lock);
                     return;;
-                }
-                c.conn->write_byte(Tag::End, err);
-                if (err) {
-                    c.fail(lock);
-                    return;
                 }
                 finish_request(err);    
                 if (err) {

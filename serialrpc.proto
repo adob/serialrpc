@@ -18,5 +18,4 @@ extend google.protobuf.MethodOptions {
   uint32 method_id = 50000;
 }
 
-message Nothing {
-}
+message void {}

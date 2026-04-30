@@ -2161,8 +2161,6 @@ switch (methodId)
 
                     if (method.parameter) {
                         printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
-                    } else {
-                        printer.Print("serialrpc::skip(conn, err);\n");
                     }
                     
                     printer.Print("if (err) {\n    return;\n}\n");
@@ -2249,8 +2247,6 @@ switch (methodId)
 
                     if (method.parameter) {
                         printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
-                    } else {
-                        printer.Print("serialrpc::skip(conn, err);\n");
                     }
                     printer.Print("if (err) {\n    return;\n}\n");
 
@@ -2400,8 +2396,6 @@ switch (methodId)
 
                         if (method.parameter) {
                             printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
-                        } else {
-                            printer.Print("serialrpc::skip(conn, err);\n");
                         }
                         
                         printer.Print("if (err) {\n    return;\n}\n");
@@ -2441,8 +2435,6 @@ switch (methodId)
                     } else {
                         if (method.parameter) {
                             printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
-                        } else {
-                            printer.Print("serialrpc::skip(conn, err);\n");
                         }
                         printer.Print("if (err) {\n    return;\n}\n");
 
@@ -2702,7 +2694,6 @@ switch (methodId)
                             printer.Outdent();
                             printer.Print("}\n");
                         } else {
-                            //printer.Print("serialrpc::skip(conn, err);\n");
                             printer.Print("if (err) {\n    return;\n}\n");
                             printer.Print("if (this->$method$_cb) {\n", "method", method.name);
                             printer.Indent();

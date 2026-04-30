@@ -194,7 +194,8 @@ Endpoint IDs sent by the client are one-based. The server subtracts one before
 indexing its dispatch table. Generated client stubs calculate endpoint IDs from
 the service offset learned during the hello exchange.
 
-For methods with a `Nothing` request, the request body is just an `End` tag.
+For methods with a `void` request, there is no request body after the
+endpoint ID.
 
 Streaming-response methods are represented as subscriptions. The generated
 client writes the endpoint ID, a one-byte enable flag, and then the optional
@@ -205,6 +206,9 @@ varuint32 endpoint_id
 uint8 enabled       # 1 to subscribe, 0 to unsubscribe
 encoded request     # present for subscribe requests
 ```
+
+For subscriptions whose request type is `void`, there is no request body
+after the enable flag.
 
 Subscription setup and teardown receive a normal `Reply` acknowledgement.
 
@@ -232,7 +236,7 @@ A successful response with a return value is:
 encoded response message
 ```
 
-A successful response for `Nothing` is just:
+A successful response for `void` is just:
 
 ```text
 0xF0
@@ -247,7 +251,7 @@ encoded event message
 ```
 
 Generated server event helpers write `event_id + 1`, matching the client-side
-one-based endpoint IDs. Events whose response type is `Nothing` contain no
+one-based endpoint IDs. Events whose response type is `void` contain no
 message body after the event ID.
 
 An error reply is:
@@ -332,4 +336,3 @@ cd build && ctest --output-on-failure
 
 If you do not provide `DCPM_baselib_SOURCE`, CPM will use the pinned
 `adob/baselib` package from `package-lock.cmake`.
-

@@ -25,23 +25,23 @@ namespace _pb = ::google::protobuf;
 namespace _pbi = ::google::protobuf::internal;
 namespace _fl = ::google::protobuf::internal::field_layout;
 template <typename>
-PROTOBUF_CONSTEXPR Nothing::Nothing(::_pbi::ConstantInitialized)
+PROTOBUF_CONSTEXPR void_::void_(::_pbi::ConstantInitialized)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::internal::ZeroFieldsBase(Nothing_class_data_.base()){}
+    : ::google::protobuf::internal::ZeroFieldsBase(void__class_data_.base()){}
 #else   // PROTOBUF_CUSTOM_VTABLE
     : ::google::protobuf::internal::ZeroFieldsBase() {
 }
 #endif  // PROTOBUF_CUSTOM_VTABLE
-struct NothingDefaultTypeInternal {
-  PROTOBUF_CONSTEXPR NothingDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~NothingDefaultTypeInternal() {}
+struct void_DefaultTypeInternal {
+  PROTOBUF_CONSTEXPR void_DefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~void_DefaultTypeInternal() {}
   union {
-    Nothing _instance;
+    void_ _instance;
   };
 };
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 NothingDefaultTypeInternal _Nothing_default_instance_;
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 void_DefaultTypeInternal _void__default_instance_;
 static constexpr const ::_pb::EnumDescriptor *PROTOBUF_NONNULL *PROTOBUF_NULLABLE
     file_level_enum_descriptors_serialrpc_2eproto = nullptr;
 static constexpr const ::_pb::ServiceDescriptor *PROTOBUF_NONNULL *PROTOBUF_NULLABLE
@@ -54,25 +54,25 @@ const ::uint32_t
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
-        {0, sizeof(::Nothing)},
+        {0, sizeof(::void_)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
-    &::_Nothing_default_instance_._instance,
+    &::_void__default_instance_._instance,
 };
 const char descriptor_table_protodef_serialrpc_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n\017serialrpc.proto\032 google/protobuf/descr"
-    "iptor.proto\"\t\n\007Nothing:4\n\013string_size\022\035."
-    "google.protobuf.FieldOptions\030\320\206\003 \001(\r:3\n\n"
-    "bytes_size\022\035.google.protobuf.FieldOption"
-    "s\030\321\206\003 \001(\r:3\n\narray_size\022\035.google.protobu"
-    "f.FieldOptions\030\322\206\003 \001(\r:/\n\004uuid\022\037.google."
-    "protobuf.ServiceOptions\030\320\206\003 \001(\t:8\n\rmajor"
-    "_version\022\037.google.protobuf.ServiceOption"
-    "s\030\321\206\003 \001(\r:8\n\rminor_version\022\037.google.prot"
-    "obuf.ServiceOptions\030\322\206\003 \001(\r:3\n\tmethod_id"
-    "\022\036.google.protobuf.MethodOptions\030\320\206\003 \001(\r"
-    "b\006proto3"
+    "iptor.proto\"\006\n\004void:4\n\013string_size\022\035.goo"
+    "gle.protobuf.FieldOptions\030\320\206\003 \001(\r:3\n\nbyt"
+    "es_size\022\035.google.protobuf.FieldOptions\030\321"
+    "\206\003 \001(\r:3\n\narray_size\022\035.google.protobuf.F"
+    "ieldOptions\030\322\206\003 \001(\r:/\n\004uuid\022\037.google.pro"
+    "tobuf.ServiceOptions\030\320\206\003 \001(\t:8\n\rmajor_ve"
+    "rsion\022\037.google.protobuf.ServiceOptions\030\321"
+    "\206\003 \001(\r:8\n\rminor_version\022\037.google.protobu"
+    "f.ServiceOptions\030\322\206\003 \001(\r:3\n\tmethod_id\022\036."
+    "google.protobuf.MethodOptions\030\320\206\003 \001(\rb\006p"
+    "roto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_serialrpc_2eproto_deps[1] = {
@@ -82,7 +82,7 @@ static ::absl::once_flag descriptor_table_serialrpc_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_serialrpc_2eproto = {
     false,
     false,
-    448,
+    445,
     descriptor_table_protodef_serialrpc_2eproto,
     "serialrpc.proto",
     &descriptor_table_serialrpc_2eproto_once,
@@ -97,79 +97,79 @@ PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_serialrpc_2epr
 };
 // ===================================================================
 
-class Nothing::_Internal {
+class void_::_Internal {
  public:
 };
 
-Nothing::Nothing(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+void_::void_(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::internal::ZeroFieldsBase(arena, Nothing_class_data_.base()) {
+    : ::google::protobuf::internal::ZeroFieldsBase(arena, void__class_data_.base()) {
 #else   // PROTOBUF_CUSTOM_VTABLE
     : ::google::protobuf::internal::ZeroFieldsBase(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(arena_constructor:Nothing)
+  // @@protoc_insertion_point(arena_constructor:void)
 }
-Nothing::Nothing(
+void_::void_(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
-    const Nothing& from)
+    const void_& from)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::internal::ZeroFieldsBase(arena, Nothing_class_data_.base()) {
+    : ::google::protobuf::internal::ZeroFieldsBase(arena, void__class_data_.base()) {
 #else   // PROTOBUF_CUSTOM_VTABLE
     : ::google::protobuf::internal::ZeroFieldsBase(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  Nothing* const _this = this;
+  void_* const _this = this;
   (void)_this;
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
 
-  // @@protoc_insertion_point(copy_constructor:Nothing)
+  // @@protoc_insertion_point(copy_constructor:void)
 }
 
-inline void* PROTOBUF_NONNULL Nothing::PlacementNew_(
+inline void* PROTOBUF_NONNULL void_::PlacementNew_(
     const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
-  return ::new (mem) Nothing(arena);
+  return ::new (mem) void_(arena);
 }
-constexpr auto Nothing::InternalNewImpl_() {
-  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(Nothing),
-                                            alignof(Nothing));
+constexpr auto void_::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::ZeroInit(sizeof(void_),
+                                            alignof(void_));
 }
-constexpr auto Nothing::InternalGenerateClassData_() {
+constexpr auto void_::InternalGenerateClassData_() {
   return ::google::protobuf::internal::ClassDataFull{
       ::google::protobuf::internal::ClassData{
-          &_Nothing_default_instance_._instance,
+          &_void__default_instance_._instance,
           &_table_.header,
           nullptr,  // OnDemandRegisterArenaDtor
           nullptr,  // IsInitialized
-          &Nothing::MergeImpl,
-          ::google::protobuf::internal::ZeroFieldsBase::GetNewImpl<Nothing>(),
+          &void_::MergeImpl,
+          ::google::protobuf::internal::ZeroFieldsBase::GetNewImpl<void_>(),
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-          &Nothing::SharedDtor,
-          ::google::protobuf::internal::ZeroFieldsBase::GetClearImpl<Nothing>(), &Nothing::ByteSizeLong,
-              &Nothing::_InternalSerialize,
+          &void_::SharedDtor,
+          ::google::protobuf::internal::ZeroFieldsBase::GetClearImpl<void_>(), &void_::ByteSizeLong,
+              &void_::_InternalSerialize,
 #endif  // PROTOBUF_CUSTOM_VTABLE
-          PROTOBUF_FIELD_OFFSET(Nothing, _impl_._cached_size_),
+          PROTOBUF_FIELD_OFFSET(void_, _impl_._cached_size_),
           false,
       },
-      &Nothing::kDescriptorMethods,
+      &void_::kDescriptorMethods,
       &descriptor_table_serialrpc_2eproto,
       nullptr,  // tracker
   };
 }
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
-    ::google::protobuf::internal::ClassDataFull Nothing_class_data_ =
-        Nothing::InternalGenerateClassData_();
+    ::google::protobuf::internal::ClassDataFull void__class_data_ =
+        void_::InternalGenerateClassData_();
 
 PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
-Nothing::GetClassData() const {
-  ::google::protobuf::internal::PrefetchToLocalCache(&Nothing_class_data_);
-  ::google::protobuf::internal::PrefetchToLocalCache(Nothing_class_data_.tc_table);
-  return Nothing_class_data_.base();
+void_::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&void__class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(void__class_data_.tc_table);
+  return void__class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
 const ::_pbi::TcParseTable<0, 0, 0, 0, 2>
-Nothing::_table_ = {
+void_::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
@@ -180,11 +180,11 @@ Nothing::_table_ = {
     0,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
-    Nothing_class_data_.base(),
+    void__class_data_.base(),
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::Nothing>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::void_>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
     {::_pbi::TcParser::MiniParse, {}},
@@ -201,7 +201,7 @@ Nothing::_table_ = {
 
 
 
-::google::protobuf::Metadata Nothing::GetMetadata() const {
+::google::protobuf::Metadata void_::GetMetadata() const {
   return ::google::protobuf::internal::ZeroFieldsBase::GetMetadataImpl(GetClassData()->full());
 }
 PROTOBUF_CONSTINIT

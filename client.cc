@@ -2,6 +2,7 @@
 
 #include "lib/io/io.h"
 #include "lib/io/util.h"
+#include "lib/serial/serial.h"
 #include "lib/varint/varint.h"
 #include "lib/error.h"
 #include "lib/fmt/fmt.h"
@@ -657,4 +658,13 @@ std::shared_ptr<Client> serialrpc::connect(std::shared_ptr<lib::io::ReaderWriter
         }
     }
     return client;
+}
+
+std::shared_ptr<Client> serialrpc::connect(str device_path, std::initializer_list<Stub*> service_infos, error err) {
+    std::shared_ptr<lib::io::ReaderWriter> conn = std::make_shared<serial::Port>(serial::open(device_path, err));
+    if (err) {
+        return nil;
+    }
+
+    return connect(conn, service_infos, err);
 }

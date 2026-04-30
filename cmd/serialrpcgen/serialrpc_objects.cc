@@ -796,10 +796,10 @@ namespace application
         if (methodId == 0)
             throw UnspecifiedMethodId{ "", name };
 
-        if (descriptor.input_type()->full_name() != Nothing::descriptor()->full_name())
+        if (descriptor.input_type()->full_name() != void_::descriptor()->full_name())
             parameter = root.GetMessage(*descriptor.input_type());
 
-        if (descriptor.output_type()->full_name() != Nothing::descriptor()->full_name()) {
+        if (descriptor.output_type()->full_name() != void_::descriptor()->full_name()) {
             result = root.GetMessage(*descriptor.output_type());
         }
 

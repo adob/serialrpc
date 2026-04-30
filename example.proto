@@ -44,15 +44,15 @@ message CANFrame {
 service CANService {
     option (uuid) = "9ef75f02-0a49-49b8-b4b6-7bfb8ad046d9";
 
-    rpc send(CANFrame) returns (Nothing) { option (method_id) = 1; }
+    rpc send(CANFrame) returns (void) { option (method_id) = 1; }
 }
 
 service ExampleService {
     option (uuid) = "a569fb0d-8929-4475-bd83-3dd372078657";
 
-    rpc say_hello(Nothing) returns (Nothing) { option (method_id) = 1; }
+    rpc say_hello(void) returns (void) { option (method_id) = 1; }
     
-    rpc example_event1(Nothing) returns (stream Nothing) { option (method_id) = 2; }
-    rpc example_event2(Nothing) returns (stream ExampleEvent) { option (method_id) = 2; }
-    rpc example_event3(ExampleEvent) returns (stream Nothing) { option (method_id) = 2; }
+    rpc example_event1(void) returns (stream void) { option (method_id) = 2; }
+    rpc example_event2(void) returns (stream ExampleEvent) { option (method_id) = 2; }
+    rpc example_event3(ExampleEvent) returns (stream void) { option (method_id) = 2; }
 }
