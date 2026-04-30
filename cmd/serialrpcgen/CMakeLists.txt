@@ -17,6 +17,7 @@ CPMFindPackage(
     "protobuf_BUILD_EXAMPLES OFF"
 )
 
+set(SERIALRPC_PROTOBUF_PROTO_DIR ${protobuf_SOURCE_DIR}/src)
 
 get_filename_component(_serialrpc_parent_dir
   "${_serialrpc_root_dir}/.."
@@ -38,6 +39,7 @@ add_custom_command(
   COMMAND ${_protoc_exe}
     --cpp_out=${_serialrpc_root_dir}/generated
     -I ${_serialrpc_root_dir}
+    -I=${SERIALRPC_PROTOBUF_PROTO_DIR}
     ${_serialrpc_root_dir}/serialrpc.proto
   DEPENDS ${_serialrpc_root_dir}/serialrpc.proto
   COMMENT "Generating serialrpc.pb.cc/h"
