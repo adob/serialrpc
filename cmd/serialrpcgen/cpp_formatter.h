@@ -134,11 +134,11 @@ namespace application
         : public Entity
     {
     public:
-        static const uint32_t fConst = 1;
-        static const uint32_t fVirtual = 2;
-        static const uint32_t fAbstract = 4;
-        static const uint32_t fOverride = 8;
-        static const uint32_t fStatic = 16;
+        static constexpr uint32_t fConst = 1;
+        static constexpr uint32_t fVirtual = 2;
+        static constexpr uint32_t fAbstract = 4;
+        static constexpr uint32_t fOverride = 8;
+        static constexpr uint32_t fStatic = 16;
 
         Function(const std::string& name, const std::string& body, const std::string& result, uint32_t flags);
 
@@ -164,9 +164,9 @@ namespace application
         : public Entity
     {
     public:
-        static const uint32_t cDefault = 1;
-        static const uint32_t cDelete = 2;
-        static const uint32_t cExplicit = 4;
+        static constexpr uint32_t cDefault = 1;
+        static constexpr uint32_t cDelete = 2;
+        static constexpr uint32_t cExplicit = 4;
 
         Constructor(const std::string& name, const std::string& body, uint32_t flags);
 
