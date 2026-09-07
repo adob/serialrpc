@@ -343,6 +343,61 @@ defines `array_size` for bounded repeated fields.
 
 ## Build and Test
 
+### Use from another CMake project
+
+Include CPM.cmake and add `serialrpc` as a package:
+
+```cmake
+include(cmake/CPM.cmake)
+
+CPMAddPackage(
+  NAME serialrpc
+  GITHUB_REPOSITORY adob/serialrpc
+  VERSION 0.0.0
+  GIT_TAG main
+  EXCLUDE_FROM_ALL YES
+)
+
+target_link_libraries(my_target PRIVATE serialrpc::client)
+```
+
+`serialrpc::client` contains the client and links the common server runtime.
+Projects that only implement a device-side server can link the smaller
+`serialrpc::server` target:
+
+```cmake
+CPMAddPackage(
+  NAME serialrpc
+  GITHUB_REPOSITORY adob/serialrpc
+  VERSION 0.0.0
+  GIT_TAG main
+  EXCLUDE_FROM_ALL YES
+)
+
+target_link_libraries(my_device PRIVATE serialrpc::server)
+```
+
+Both targets are always available. Boost is configured for the client target,
+but client object code is not linked into targets that use only
+`serialrpc::server`.
+
+The protobuf compiler and `serialrpcgen` targets are configured for native
+builds. Cross-compiling projects use the checked-in protocol bindings.
+
+For local development, point CPM at local checkouts when configuring. Since
+`serialrpc` depends on `baselib`, override both packages:
+
+```sh
+cmake -S . -B build \
+  -DCPM_serialrpc_SOURCE=$HOME/lib/serialrpc \
+  -DCPM_baselib_SOURCE=$HOME/deps/baselib
+```
+
+The `CPM_<package>_SOURCE` variables keep the same `CPMAddPackage` declarations
+while replacing downloads with local source trees.
+
+### Build this repository
+
 This project can be built with CMake and
 [CPM](https://github.com/cpm-cmake/cpm.cmake):
 

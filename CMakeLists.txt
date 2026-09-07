@@ -16,56 +16,41 @@ CPMAddPackage(
   NAME baselib
   GITHUB_REPOSITORY adob/baselib
   VERSION 0.0.0
-  GIT_TAG 36f6c17ea5fcf481d9d6849566a980ca82b7d6e3
+  GIT_TAG 01860788104c73701c88c00238c49bb7f2f740d4
 )
 
-CPMFindPackage(
-  NAME protobuf
-  VERSION 32.1.0
-  GITHUB_REPOSITORY protocolbuffers/protobuf
-  GIT_TAG v32.1
-  OPTIONS
-    "protobuf_BUILD_TESTS OFF"
-    "protobuf_BUILD_CONFORMANCE OFF"
-    "protobuf_BUILD_EXAMPLES OFF"
-)
-
-set(SERIALRPC_BOOST_VERSION "1.87.0" CACHE STRING "Boost version used by serialrpc")
-set(SERIALRPC_BOOST_COMPONENTS "unordered" CACHE STRING "Boost components required by serialrpc")
+if(NOT CMAKE_CROSSCOMPILING)
+  CPMFindPackage(
+    NAME protobuf
+    VERSION 32.1.0
+    GITHUB_REPOSITORY protocolbuffers/protobuf
+    GIT_TAG v32.1
+    OPTIONS
+      "protobuf_BUILD_TESTS OFF"
+      "protobuf_BUILD_CONFORMANCE OFF"
+      "protobuf_BUILD_EXAMPLES OFF"
+  )
+endif()
 
 CPMFindPackage(
   NAME Boost
-  VERSION ${SERIALRPC_BOOST_VERSION} # Versions less than 1.85.0 may need patches for installation targets.
-  URL https://github.com/boostorg/boost/releases/download/boost-${SERIALRPC_BOOST_COMPONENTS}/boost-${SERIALRPC_BOOST_COMPONENTS}-cmake.tar.xz
+  VERSION 1.87.0 # Versions less than 1.85.0 may need patches for installation targets.
+  URL https://github.com/boostorg/boost/releases/download/boost-1.87.0/boost-1.87.0-cmake.tar.xz
   URL_HASH SHA256=7da75f171837577a52bbf217e17f8ea576c7c246e4594d617bfde7fafd408be5
-  FIND_PACKAGE_ARGUMENTS "CONFIG;COMPONENTS;${SERIALRPC_BOOST_COMPONENTS}"
+  FIND_PACKAGE_ARGUMENTS "CONFIG;COMPONENTS;unordered"
   OPTIONS "BOOST_ENABLE_CMAKE ON" "BOOST_SKIP_INSTALL_RULES ON" # Set `OFF` for installation
           "BUILD_SHARED_LIBS OFF"
 )
 
-set(SERIALRPC_PROTOBUF_PROTO_DIR ${protobuf_SOURCE_DIR}/src)
-
-file(GLOB SOURCES 
-    ${CMAKE_CURRENT_LIST_DIR}/*.cc
+add_library(${PROJECT_NAME}_server STATIC
+  encoding.cc
+  rpc.cc
+  server.cc
+  generated/serialrpc_protocol.pb_msg.cc
 )
 
-foreach(src_file IN LISTS SOURCES)
-  if(src_file MATCHES ".*_(test|posix|experimental|benchmark|arduino)\\.cc$")
-    list(REMOVE_ITEM SOURCES ${src_file})
-  endif()
-
-  if(src_file MATCHES "(^|[^A-Za-z0-9_])example([^A-Za-z0-9_]|$)")
-    list(REMOVE_ITEM SOURCES ${src_file})
-  endif()
-endforeach()
-
-add_library(${PROJECT_NAME} STATIC
-    ${SOURCES}
-)
-
-add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
+add_library(${PROJECT_NAME}::server ALIAS ${PROJECT_NAME}_server)
+target_compile_features(${PROJECT_NAME}_server PUBLIC cxx_std_23)
 
 get_filename_component(_parent_dir
   "${CMAKE_CURRENT_LIST_DIR}/.."
@@ -84,65 +69,73 @@ if(NOT EXISTS ${SERIALRPC_INCLUDE_DIR}/serialrpc)
   )
 endif()
 
-target_include_directories(${PROJECT_NAME} PUBLIC
+target_include_directories(${PROJECT_NAME}_server PUBLIC
   $<BUILD_INTERFACE:${SERIALRPC_INCLUDE_DIR}>
   $<BUILD_INTERFACE:${_parent_dir}>
   $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC baselib::baselib)
+target_link_libraries(${PROJECT_NAME}_server PUBLIC baselib::baselib)
 
-set(SERIALRPC_BOOST_TARGETS Boost::headers)
-foreach(boost_component IN LISTS SERIALRPC_BOOST_COMPONENTS)
-  if(TARGET "Boost::${boost_component}")
-    list(APPEND SERIALRPC_BOOST_TARGETS "Boost::${boost_component}")
+add_library(${PROJECT_NAME}_client STATIC
+  client.cc
+  internal.cc
+)
+add_library(${PROJECT_NAME}::client ALIAS ${PROJECT_NAME}_client)
+target_compile_features(${PROJECT_NAME}_client PUBLIC cxx_std_23)
+target_include_directories(${PROJECT_NAME}_client PUBLIC
+  $<BUILD_INTERFACE:${SERIALRPC_INCLUDE_DIR}>
+  $<BUILD_INTERFACE:${_parent_dir}>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(${PROJECT_NAME}_client PUBLIC ${PROJECT_NAME}::server)
+
+target_link_libraries(${PROJECT_NAME}_client PUBLIC
+  Boost::headers
+)
+
+if(NOT CMAKE_CROSSCOMPILING)
+  set(SERIALRPC_PROTOBUF_PROTO_DIR ${protobuf_SOURCE_DIR}/src)
+  set(_serialrpc_root_dir ${CMAKE_CURRENT_LIST_DIR})
+  add_subdirectory(cmd/serialrpcgen)
+
+  if(TARGET serialrpcgen_plugin)
+    target_include_directories(serialrpcgen_plugin PRIVATE
+      ${SERIALRPC_INCLUDE_DIR}
+    )
   endif()
-endforeach()
-target_link_libraries(${PROJECT_NAME} PUBLIC ${SERIALRPC_BOOST_TARGETS})
 
-set(_serialrpc_root_dir ${CMAKE_CURRENT_LIST_DIR})
-add_subdirectory(cmd/serialrpcgen)
+  # Find protoc (protobuf is loaded by cmd/serialrpcgen)
+  if(TARGET protobuf::protoc)
+    set(_protoc_exe $<TARGET_FILE:protobuf::protoc>)
+  else()
+    find_program(_protoc_exe NAMES protoc REQUIRED)
+  endif()
 
-if(TARGET serialrpcgen_plugin)
-  target_include_directories(serialrpcgen_plugin PRIVATE
-    ${SERIALRPC_INCLUDE_DIR}
+  # Generate serialrpc_protocol files required by the library
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/generated)
+  add_custom_command(
+    OUTPUT
+      ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.cc
+      ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.h
+      ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_client.cc
+      ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_client.h
+      ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_server.cc
+      ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_server.h
+    COMMAND ${_protoc_exe}
+      --plugin=protoc-gen-serialrpc=$<TARGET_FILE:serialrpcgen_plugin>
+      --serialrpc_out=${CMAKE_CURRENT_LIST_DIR}/generated
+      -I ${CMAKE_CURRENT_LIST_DIR}
+      -I ${SERIALRPC_PROTOBUF_PROTO_DIR}
+      ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
+    DEPENDS
+      ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
+      serialrpcgen_plugin
+    COMMENT "Generating serialrpc_protocol.pb_*.cc/h"
   )
 endif()
 
-# Find protoc (protobuf is loaded by cmd/serialrpcgen)
-if(TARGET protobuf::protoc)
-  set(_protoc_exe $<TARGET_FILE:protobuf::protoc>)
-else()
-  find_program(_protoc_exe NAMES protoc REQUIRED)
-endif()
-
-# Generate serialrpc_protocol files required by the library
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/generated)
-add_custom_command(
-  OUTPUT
-    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.cc
-    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.h
-    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_client.cc
-    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_client.h
-    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_server.cc
-    ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_server.h
-  COMMAND ${_protoc_exe}
-    --plugin=protoc-gen-serialrpc=$<TARGET_FILE:serialrpcgen_plugin>
-    --serialrpc_out=${CMAKE_CURRENT_LIST_DIR}/generated
-    -I ${CMAKE_CURRENT_LIST_DIR}
-    -I ${SERIALRPC_PROTOBUF_PROTO_DIR}
-    ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
-  DEPENDS
-    ${CMAKE_CURRENT_LIST_DIR}/serialrpc_protocol.proto
-    serialrpcgen_plugin
-  COMMENT "Generating serialrpc_protocol.pb_*.cc/h"
-)
-
-target_sources(${PROJECT_NAME} PRIVATE
-  ${CMAKE_CURRENT_LIST_DIR}/generated/serialrpc_protocol.pb_msg.cc
-)
-
-if(BUILD_TESTING)
+if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
   add_custom_command(
     OUTPUT
       ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_msg.cc
@@ -177,7 +170,7 @@ if(BUILD_TESTING)
   )
 
   target_link_libraries(${PROJECT_NAME}_tests PRIVATE
-    ${PROJECT_NAME}::${PROJECT_NAME}
+    ${PROJECT_NAME}::client
     baselib::test_main
   )
 
