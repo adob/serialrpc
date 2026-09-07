@@ -1,0 +1,3 @@
+cmake -S . -B build -DBUILD_TESTING=ON -DCPM_baselib_SOURCE=$HOME/deps/baselib
+cmake --build build
+cd build && ctest --output-on-failure
