@@ -109,6 +109,24 @@ Every `serialrpc::Server` automatically exposes
 fully qualified name, UUID, version, and method table for every exposed
 service. The discovery service includes itself in the result.
 
+The host-side `serialrpc` command can query this service. `list` is the
+canonical spelling, with `ls` available as a short alias:
+
+```sh
+serialrpc list /dev/ttyACM0
+```
+
+The output follows a compact `grpc_cli`-style service summary, listing each
+fully qualified service name followed by its exposed RPC methods:
+
+```text
+serialrpc.DiscoveryService
+  rpc ListServices
+example.SumService
+  rpc sum
+  rpc sum_events
+```
+
 Client generation produces one stub per service. Pass the stubs to
 `serialrpc::connect`, then call RPC methods directly:
 

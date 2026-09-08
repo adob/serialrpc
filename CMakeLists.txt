@@ -98,6 +98,7 @@ target_link_libraries(${PROJECT_NAME}_client PUBLIC
 if(NOT CMAKE_CROSSCOMPILING)
   set(SERIALRPC_PROTOBUF_PROTO_DIR ${protobuf_SOURCE_DIR}/src)
   set(_serialrpc_root_dir ${CMAKE_CURRENT_LIST_DIR})
+  add_subdirectory(cmd/serialrpc)
   add_subdirectory(cmd/serialrpcgen)
 
   if(TARGET serialrpcgen_plugin)
