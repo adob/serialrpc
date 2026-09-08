@@ -16,11 +16,58 @@ message ServerHello {
   repeated ServiceDef services = 2;
 }
 
-// Describes an RPC method using its human-readable proto name and its
-// service-local method ID.
+enum FieldType {
+  FieldTypeUnknown = 0;
+  FieldTypeDouble = 1;
+  FieldTypeFloat = 2;
+  FieldTypeInt64 = 3;
+  FieldTypeUint64 = 4;
+  FieldTypeInt32 = 5;
+  FieldTypeFixed64 = 6;
+  FieldTypeFixed32 = 7;
+  FieldTypeBool = 8;
+  FieldTypeString = 9;
+  FieldTypeMessage = 11;
+  FieldTypeBytes = 12;
+  FieldTypeUint32 = 13;
+  FieldTypeEnum = 14;
+  FieldTypeSfixed32 = 15;
+  FieldTypeSfixed64 = 16;
+  FieldTypeSint32 = 17;
+  FieldTypeSint64 = 18;
+}
+
+message FieldInfo {
+  string name = 1 [(string_size) = 64];
+  uint32 number = 2;
+  FieldType type = 3;
+  // Set for message and enum fields; indexes ServiceInfo.types.
+  uint32 type_id = 4;
+  bool repeated = 5;
+}
+
+message EnumValueInfo {
+  string name = 1 [(string_size) = 64];
+  int32 number = 2;
+}
+
+message TypeInfo {
+  // One-based index within ServiceInfo.types.
+  uint32 id = 1;
+  FieldType type = 2;
+  string name = 3 [(string_size) = 128];
+  repeated FieldInfo fields = 4;
+  repeated EnumValueInfo enum_values = 5;
+}
+
+// Describes an RPC method. Request and response types index ServiceInfo.types.
 message MethodInfo {
   string name = 1 [(string_size) = 64];
   uint32 id = 2;
+  uint32 request_type = 3;
+  uint32 response_type = 4;
+  bool client_streaming = 5;
+  bool server_streaming = 6;
 }
 
 // Describes one service implemented by the server. The name is the fully
@@ -31,16 +78,19 @@ message ServiceInfo {
   int32 major_version = 3;
   int32 minor_version = 4;
   repeated MethodInfo methods = 5;
+  repeated TypeInfo types = 6;
 }
 
-message ListServicesRequest {}
+message ListServicesRequest {
+  // Include request and response schemas for every method.
+  bool full = 1;
+}
 
 message ListServicesResponse {
   repeated ServiceInfo services = 1;
 }
 
 // Provides a compact subset of gRPC server reflection suitable for serialrpc.
-// It exposes service and method metadata, but not protobuf file descriptors.
 service DiscoveryService {
   option (uuid) = "b2fc7a75-0f8d-4147-a117-1556aee1c4c7";
   option (major_version) = 1;

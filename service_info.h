@@ -2,15 +2,16 @@
 
 #include <array>
 #include <cstdint>
-#include <string_view>
+#include "lib/str.h"
+#include "lib/types.h"
 
 namespace serialrpc {
     struct ServiceInfo {
-        std::string_view Name;
-        std::string_view Package;
-        std::array<uint8_t, 16> UUID;
-        int MajorVersion;
-        int MinorVersion;
-        int NumEndpoints;
+        lib::str name;
+        lib::str package;
+        std::array<lib::uint8, 16> uuid;
+        lib::int32 major_version;
+        lib::int32 minor_version;
+        lib::uint32 num_endpoints;
     };
 }

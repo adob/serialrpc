@@ -11,6 +11,7 @@
 #include "cpp_formatter.h"
 #include <iomanip>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -86,6 +87,228 @@ namespace application
             }
             out << "}";
             return out.str();
+        }
+
+        void CollectMessageTypes(
+            google::protobuf::Descriptor const& message,
+            std::vector<google::protobuf::Descriptor const*>& messages,
+            std::vector<google::protobuf::EnumDescriptor const*>& enums,
+            std::set<std::string>& addedMessages,
+            std::set<std::string>& addedEnums)
+        {
+            if (!addedMessages.insert(std::string(message.full_name())).second)
+                return;
+            messages.push_back(&message);
+
+            for (int i = 0; i < message.field_count(); ++i) {
+                auto const& field = *message.field(i);
+                if (field.message_type() != nullptr) {
+                    CollectMessageTypes(*field.message_type(), messages, enums,
+                                        addedMessages, addedEnums);
+                } else if (field.enum_type() != nullptr
+                           && addedEnums.insert(
+                               std::string(field.enum_type()->full_name())).second) {
+                    enums.push_back(field.enum_type());
+                }
+            }
+        }
+
+        void CollectServiceTypes(
+            EchoService const& service,
+            std::vector<google::protobuf::Descriptor const*>& messages,
+            std::vector<google::protobuf::EnumDescriptor const*>& enums)
+        {
+            std::set<std::string> addedMessages;
+            std::set<std::string> addedEnums;
+            for (auto const& method : service.methods) {
+                CollectMessageTypes(*method.descriptor->input_type(), messages,
+                                    enums, addedMessages, addedEnums);
+                CollectMessageTypes(*method.descriptor->output_type(), messages,
+                                    enums, addedMessages, addedEnums);
+            }
+        }
+
+        std::string TypeSymbol(std::string const& prefix,
+                               std::string_view fullName)
+        {
+            return prefix + "_type_" + FilenameIdentifier(std::string(fullName));
+        }
+
+        bool IsVoidType(google::protobuf::Descriptor const& message)
+        {
+            auto const* voidDescriptor = void_::descriptor();
+            return message.full_name() == voidDescriptor->full_name()
+                && message.file()->name() == voidDescriptor->file()->name();
+        }
+
+        std::string MessageTypeName(
+            google::protobuf::Descriptor const& message)
+        {
+            std::string name = "::";
+            std::vector<std::string> packageParts =
+                absl::StrSplit(message.file()->package(), ".");
+            if (!packageParts.empty()) {
+                packageParts.back() += "pb";
+                for (auto const& part : packageParts)
+                    name += part + "::";
+            }
+            std::vector<std::string_view> containingTypes;
+            for (auto const* containing = message.containing_type();
+                 containing != nullptr;
+                 containing = containing->containing_type()) {
+                containingTypes.push_back(containing->name());
+            }
+            for (auto i = containingTypes.rbegin();
+                 i != containingTypes.rend(); ++i) {
+                name += std::string(*i) + "::";
+            }
+            return name + std::string(message.name());
+        }
+
+        std::string LocalMessageTypeName(
+            google::protobuf::Descriptor const& message)
+        {
+            std::string name;
+            std::vector<std::string_view> containingTypes;
+            for (auto const* containing = message.containing_type();
+                 containing != nullptr;
+                 containing = containing->containing_type()) {
+                containingTypes.push_back(containing->name());
+            }
+            for (auto i = containingTypes.rbegin();
+                 i != containingTypes.rend(); ++i) {
+                name += std::string(*i) + "::";
+            }
+            return name + std::string(message.name());
+        }
+
+        std::string MessageTypePointer(
+            google::protobuf::Descriptor const& message)
+        {
+            if (IsVoidType(message))
+                return "&serialrpc::TypeVoid";
+            return "&" + MessageTypeName(message) + "::Info";
+        }
+
+        std::string TypePointer(std::string const& prefix,
+                                google::protobuf::FieldDescriptor const& field)
+        {
+            switch (field.type()) {
+            case google::protobuf::FieldDescriptor::TYPE_DOUBLE:
+                return "&serialrpc::TypeDouble";
+            case google::protobuf::FieldDescriptor::TYPE_FLOAT:
+                return "&serialrpc::TypeFloat";
+            case google::protobuf::FieldDescriptor::TYPE_INT64:
+                return "&serialrpc::TypeInt64";
+            case google::protobuf::FieldDescriptor::TYPE_UINT64:
+                return "&serialrpc::TypeUint64";
+            case google::protobuf::FieldDescriptor::TYPE_INT32:
+                return "&serialrpc::TypeInt32";
+            case google::protobuf::FieldDescriptor::TYPE_FIXED64:
+                return "&serialrpc::TypeFixed64";
+            case google::protobuf::FieldDescriptor::TYPE_FIXED32:
+                return "&serialrpc::TypeFixed32";
+            case google::protobuf::FieldDescriptor::TYPE_BOOL:
+                return "&serialrpc::TypeBool";
+            case google::protobuf::FieldDescriptor::TYPE_STRING:
+                return "&serialrpc::TypeString";
+            case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
+            case google::protobuf::FieldDescriptor::TYPE_GROUP:
+                return MessageTypePointer(*field.message_type());
+            case google::protobuf::FieldDescriptor::TYPE_BYTES:
+                return "&serialrpc::TypeBytes";
+            case google::protobuf::FieldDescriptor::TYPE_UINT32:
+                return "&serialrpc::TypeUint32";
+            case google::protobuf::FieldDescriptor::TYPE_ENUM:
+                return "&detail::"
+                    + TypeSymbol(prefix, field.enum_type()->full_name());
+            case google::protobuf::FieldDescriptor::TYPE_SFIXED32:
+                return "&serialrpc::TypeSfixed32";
+            case google::protobuf::FieldDescriptor::TYPE_SFIXED64:
+                return "&serialrpc::TypeSfixed64";
+            case google::protobuf::FieldDescriptor::TYPE_SINT32:
+                return "&serialrpc::TypeSint32";
+            case google::protobuf::FieldDescriptor::TYPE_SINT64:
+                return "&serialrpc::TypeSint64";
+            }
+            return "nullptr";
+        }
+
+        std::string GenerateTypeMetadata(
+            std::string const& prefix,
+            google::protobuf::FileDescriptor const& file,
+            std::vector<std::shared_ptr<EchoService>> const& services)
+        {
+            std::string out;
+            std::vector<google::protobuf::Descriptor const*> messages;
+            std::vector<google::protobuf::EnumDescriptor const*> enums;
+            std::set<std::string> addedMessages;
+            std::set<std::string> addedEnums;
+            for (int i = 0; i < file.message_type_count(); ++i) {
+                CollectMessageTypes(*file.message_type(i), messages, enums,
+                                    addedMessages, addedEnums);
+            }
+
+            if (!enums.empty()) {
+                out += "namespace detail {\n";
+                for (auto const* type : enums) {
+                    std::string symbol = TypeSymbol(prefix, type->full_name());
+                    out += "    inline const serialrpc::TypeInfo " + symbol
+                        + " = {\n"
+                        + "        .kind = serialrpc::TypeKind::Enum,\n"
+                        + "        .name = \"" + std::string(type->full_name())
+                        + "\",\n"
+                        + "        .enumValues = {\n";
+                    for (int i = 0; i < type->value_count(); ++i) {
+                        auto const& value = *type->value(i);
+                        out += "            {\"" + std::string(value.name())
+                            + "\", " + SimpleItoa(value.number()) + "},\n";
+                    }
+                    out += "        },\n    };\n";
+                }
+                out += "}\n";
+            }
+
+            for (auto const* message : messages) {
+                if (IsVoidType(*message) || message->file() != &file)
+                    continue;
+                std::string messageType = LocalMessageTypeName(*message);
+                out += "inline const serialrpc::TypeInfo " + messageType
+                    + "::Info = {\n"
+                    + "    .kind = serialrpc::TypeKind::Message,\n"
+                    + "    .name = \"" + std::string(message->full_name())
+                    + "\",\n"
+                    + "    .fields = {\n";
+                for (int i = 0; i < message->field_count(); ++i) {
+                    auto const& field = *message->field(i);
+                    out += "        {\"" + std::string(field.name()) + "\", "
+                        + SimpleItoa(field.number()) + ", "
+                        + TypePointer(prefix, field) + ", "
+                        + (field.is_repeated() ? "true" : "false") + "},\n";
+                }
+                out += "    },\n};\n";
+            }
+
+            out += "namespace detail {\n";
+            for (auto const& service : services) {
+                messages.clear();
+                enums.clear();
+                CollectServiceTypes(*service, messages, enums);
+                std::string typesSymbol = prefix + "_"
+                    + FilenameIdentifier(service->name) + "_types";
+                out += "    inline constexpr std::array<serialrpc::TypeInfo const*, "
+                    + SimpleItoa(messages.size() + enums.size()) + "> "
+                    + typesSymbol + " = {{\n";
+                for (auto const* message : messages)
+                    out += "        " + MessageTypePointer(*message)
+                        + ",\n";
+                for (auto const* type : enums)
+                    out += "        &" + TypeSymbol(prefix, type->full_name())
+                        + ",\n";
+                out += "    }};\n";
+            }
+            out += "}\n";
+            return out;
         }
 
         std::string UuidString(const std::array<uint8_t, 16>& data)
@@ -216,7 +439,7 @@ namespace application
 
             void VisitEnum(const EchoFieldEnum& field) override
             {
-                result = field.type->qualifiedDetailName;
+                result = field.typeName;
             }
 
             void VisitSFixed64(const EchoFieldSFixed64& field) override
@@ -241,7 +464,7 @@ namespace application
 
             void VisitMessage(const EchoFieldMessage& field) override
             {
-                result = field.message->qualifiedDetailName;
+                result = field.typeName;
             }
 
             void VisitBytes(const EchoFieldBytes& field) override
@@ -344,7 +567,7 @@ namespace application
 
             void VisitEnum(const EchoFieldEnum& field) override
             {
-                result = field.type->qualifiedDetailName;
+                result = field.typeName;
             }
         };
 
@@ -381,7 +604,7 @@ namespace application
 
             void VisitEnum(const EchoFieldEnum& field) override
             {
-                result = field.type->qualifiedDetailName;
+                result = field.typeName;
             }
 
             void VisitRepeated(const EchoFieldRepeated& field) override
@@ -414,7 +637,7 @@ namespace application
 
             void VisitMessage(const EchoFieldMessage& field) override
             {
-                result = "const " + field.message->qualifiedDetailName + "&";
+                result = "const " + field.typeName + "&";
             }
         };
 
@@ -851,6 +1074,8 @@ namespace application
         // GenerateNestedMessages(formatter);
         // GenerateTypeMap(formatter);
         GenerateClass(formatter);
+        structFormatter->Add(std::make_shared<DataMember>(
+            "Info", "static const serialrpc::TypeInfo"));
         // GenerateNestedMessageAliases();
         GenerateEnums();
         // GenerateConstructors();
@@ -1442,8 +1667,12 @@ namespace application
         return "Reference";
     }
 
-    ServiceGenerator::ServiceGenerator(const std::shared_ptr<const EchoService>& service, Entities& formatter)
+    ServiceGenerator::ServiceGenerator(
+        const std::shared_ptr<const EchoService>& service,
+        Entities& formatter,
+        const std::string& metadataPrefix)
         : service(service)
+        , metadataPrefix(metadataPrefix)
     {
         auto serviceClass = std::make_shared<Struct>(service->name);
         // serviceClass->Parent("public services::Service");
@@ -1501,20 +1730,32 @@ namespace application
         info_initializer += "            " + SimpleItoa(service->methods.size()) + ",\n";
         info_initializer += "        }";
         serviceFormatter->Add(std::make_shared<DataMember>(
-            "info",
+            "Info",
             "static constexpr serialrpc::ServiceInfo",
             info_initializer));
 
         std::string methods_initializer = "{{\n";
         for (auto const& method : service->methods) {
             methods_initializer += "            {\"" + method.name + "\", "
-                + SimpleItoa(method.methodId) + "},\n";
+                + SimpleItoa(method.methodId) + ", "
+                + MessageTypePointer(*method.descriptor->input_type())
+                + ", " + MessageTypePointer(*method.descriptor->output_type())
+                + ", "
+                + (method.descriptor->client_streaming() ? "true" : "false")
+                + ", " + (method.server_streaming ? "true" : "false")
+                + "},\n";
         }
         methods_initializer += "        }}";
         serviceFormatter->Add(std::make_shared<DataMember>(
             "Methods",
             "static constexpr std::array<serialrpc::MethodInfo, " + SimpleItoa(service->methods.size()) + ">",
             methods_initializer));
+
+        serviceFormatter->Add(std::make_shared<DataMember>(
+            "Types",
+            "static constexpr auto const&",
+            "detail::" + metadataPrefix + "_"
+                + FilenameIdentifier(service->name) + "_types"));
 
         for (auto& method : service->methods)
         {
@@ -1524,12 +1765,12 @@ namespace application
                 auto serviceMethod = std::make_shared<Function>("subscribe_" + method.name, "", "void", Function::fVirtual | Function::fAbstract);
             
                 if (method.parameter) {
-                    serviceMethod->Parameter(method.parameter->name + " const &req");
+                    serviceMethod->Parameter(method.parameterTypeName + " const &req");
                 }
 
                 std::string result;
                 if (method.result) {
-                    result = method.result->name + " const&";
+                    result = method.resultTypeName + " const&";
                 }
                 serviceMethod->Parameter("std::function<void(" + result +")> const &cb");
                 
@@ -1543,14 +1784,14 @@ namespace application
             } else {
                 std::string rettype;
                 if (method.result) {
-                    rettype = method.result->name;
+                    rettype = method.resultTypeName;
                 } else {
                     rettype = "void";
                 }
                 auto serviceMethod = std::make_shared<Function>(method.name, "", rettype, Function::fVirtual | Function::fAbstract);
             
                 if (method.parameter) {
-                    serviceMethod->Parameter(method.parameter->name + " const &req");
+                    serviceMethod->Parameter(method.parameterTypeName + " const &req");
                 }
                 serviceMethod->Parameter("lib::error err");
                 serviceFormatter->Add(serviceMethod);
@@ -1948,9 +2189,12 @@ switch (methodId)
         }
         if (options.generate_shared) {
             includesByHeader->Path("serialrpc/encoding.h");
+            includesByHeader->Path("serialrpc/method_info.h");
             if (!root.GetFile(*file)->services.empty()) {
-                includesByHeader->Path("serialrpc/method_info.h");
                 includesByHeader->Path("serialrpc/service_info.h");
+            }
+            for (auto const& dependency : root.GetFile(*file)->dependencies) {
+                includesByHeader->Path(dependency->name + ".pb_msg.h");
             }
             includesBySource->Path(name + "_msg.h");
         }
@@ -1964,9 +2208,6 @@ switch (methodId)
         // includesByHeader->Path("infra/syntax/ProtoFormatter.hpp");
         // includesByHeader->Path("infra/syntax/ProtoParser.hpp");
         
-        // for (auto& dependency : root.GetFile(*file)->dependencies)
-        //     includesByHeader->Path("generated/echo/" + dependency->name + ".pb.hpp");
-
         formatter.Add(includesByHeader);
         
         // includesBySource->Path("generated/echo/" + root.GetFile(*file)->name + ".pb.hpp");
@@ -1986,6 +2227,8 @@ switch (methodId)
             currentEntity = newEntity;
         }
 
+        std::string metadata_prefix =
+            FilenameIdentifier(std::string(file->name()));
         // auto decl = std::make_shared<StructForwardDeclaration>("RPCServer");
         // currentEntity->Add(decl);
 
@@ -2006,8 +2249,13 @@ switch (methodId)
                 messageGenerators.back()->Run(*currentEntity);
             }
 
+            currentEntity->Add(std::make_shared<HeaderSnippet>(
+                GenerateTypeMetadata(metadata_prefix, *file,
+                                     root.GetFile(*file)->services)));
+
             for (auto& service : root.GetFile(*file)->services) {
-                serviceGenerators.emplace_back(std::make_shared<ServiceGenerator>(service, *currentEntity));
+                serviceGenerators.emplace_back(std::make_shared<ServiceGenerator>(
+                    service, *currentEntity, metadata_prefix));
             }
         }
 
@@ -2186,7 +2434,7 @@ switch (methodId)
                     printer.Indent();
 
                     if (method.parameter) {
-                        printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
+                        printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameterTypeName);
                     }
                     
                     printer.Print("if (err) {\n    return;\n}\n");
@@ -2255,7 +2503,7 @@ switch (methodId)
 
                 auto func = std::make_shared<Function>("send_" + method.name, result.str(), "void", 0);
                 if (method.result) {
-                    func->Parameter(method.result->name + " const &msg");
+                    func->Parameter(method.resultTypeName + " const &msg");
                 }
                 serverBase->Add(func);
 
@@ -2272,7 +2520,7 @@ switch (methodId)
                     google::protobuf::io::Printer printer(&stream, options);
 
                     if (method.parameter) {
-                        printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
+                        printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameterTypeName);
                     }
                     printer.Print("if (err) {\n    return;\n}\n");
 
@@ -2280,10 +2528,10 @@ switch (methodId)
                         printer.Print("serialrpc::ServerErrorHandler handler_err(conn, err);\n");
                         if (method.parameter) {
                             printer.Print("$T$ resp = static_cast<$service$Base*>(service)->$method$(msg, handler_err);\n", 
-                                "T", method.result->name, "service", service.name, "method", method.name);
+                                "T", method.resultTypeName, "service", service.name, "method", method.name);
                         } else {
                             printer.Print("$T$ resp = static_cast<$service$Base*>(service)->$method$(handler_err);\n", 
-                                "T", method.result->name, "service", service.name, "method", method.name);
+                                "T", method.resultTypeName, "service", service.name, "method", method.name);
                         }
                         printer.Print("if (handler_err) {\n    return;\n}\n");
                         printer.Print("serialrpc::send_reply_msg(conn, resp, err);\n");
@@ -2384,7 +2632,7 @@ switch (methodId)
                 }
 
                 auto func = std::make_shared<Function>("send_" + service.name + "_" + method.name, result.str(), "void", 0);
-                func->Parameter(method.result->name + " const &msg");
+                func->Parameter(method.resultTypeName + " const &msg");
                 server->Add(func);
             }
         }
@@ -2421,7 +2669,7 @@ switch (methodId)
                         printer.Indent();
 
                         if (method.parameter) {
-                            printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
+                            printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameterTypeName);
                         }
                         
                         printer.Print("if (err) {\n    return;\n}\n");
@@ -2460,16 +2708,16 @@ switch (methodId)
                         printer.Print("if (err) {\n    return;\n}\n");
                     } else {
                         if (method.parameter) {
-                            printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameter->name);
+                            printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.parameterTypeName);
                         }
                         printer.Print("if (err) {\n    return;\n}\n");
 
                         if (method.result) {
                             printer.Print("serialrpc::ServerErrorHandler handler_err(conn, err);\n");
                             if (method.parameter) {
-                                printer.Print("$T$ resp = static_cast<$service$Base*>(service)->$method$(msg, handler_err);\n", "T", method.result->name, "service", CamelCaseToUnderscores(service.name), "method", method.name);
+                                printer.Print("$T$ resp = static_cast<$service$Base*>(service)->$method$(msg, handler_err);\n", "T", method.resultTypeName, "service", CamelCaseToUnderscores(service.name), "method", method.name);
                             } else {
-                                printer.Print("$T$ resp = static_cast<$service$Base*>(service)->$method$(handler_err);\n", "T", method.result->name, "service", CamelCaseToUnderscores(service.name), "method", method.name);
+                                printer.Print("$T$ resp = static_cast<$service$Base*>(service)->$method$(handler_err);\n", "T", method.resultTypeName, "service", CamelCaseToUnderscores(service.name), "method", method.name);
                             }
                             printer.Print("if (err || handler_err) {\n    return;\n}\n");
                             printer.Print("serialrpc::send_reply_msg(conn, resp, err);\n");
@@ -2612,7 +2860,7 @@ switch (methodId)
                 }
                 std::string result;
                 if (method.result) {
-                    result = method.result->name + " const&";
+                    result = method.resultTypeName + " const&";
                 }
                 auto field = std::make_shared<DataMember>(method.name + "_cb", "std::function<void(" + result + ")>");
                 service_struct->Add(field);
@@ -2626,10 +2874,10 @@ switch (methodId)
                 options.spaces_per_indent = 4;
                 google::protobuf::io::Printer printer(&stream, options);
 
-                printer.Print("this->uuid = str($T$::info.UUID);\n", "T", service.name);
-                printer.Print("this->major_version = $T$::info.MajorVersion;\n", "T", service.name);
-                printer.Print("this->minor_version = $T$::info.MinorVersion;\n", "T", service.name);
-                printer.Print("this->name = $T$::info.Name;\n", "T", service.name);
+                printer.Print("this->uuid = str($T$::Info.uuid);\n", "T", service.name);
+                printer.Print("this->major_version = $T$::Info.major_version;\n", "T", service.name);
+                printer.Print("this->minor_version = $T$::Info.minor_version;\n", "T", service.name);
+                printer.Print("this->name = $T$::Info.name;\n", "T", service.name);
             }
             auto constructor = std::make_shared<Constructor>(service.name + "Stub", constructor_code.str(), 0);
             // constructor->Parameter("serialrpc::Client &client");
@@ -2665,18 +2913,18 @@ switch (methodId)
                             "T", service.name, "name", method.name);
 
                         if (method.parameter) {
-                            printer.Print("this->client->subscribe(event_id, info.Name, \"$procedure_name$\", req, err);\n", "procedure_name", method.name);
+                            printer.Print("this->client->subscribe(event_id, Info.name, \"$procedure_name$\", req, err);\n", "procedure_name", method.name);
                         } else {
-                            printer.Print("this->client->subscribe(event_id, info.Name, \"$procedure_name$\", err);\n", "procedure_name", method.name);
+                            printer.Print("this->client->subscribe(event_id, Info.name, \"$procedure_name$\", err);\n", "procedure_name", method.name);
                         }
                     }
                     auto serviceMethod = std::make_shared<Function>("subscribe_" + method.name, subscribe_code.str(), "void", Function::fOverride);
                     if (method.parameter) {
-                        serviceMethod->Parameter(method.parameter->name + " const &req");   
+                        serviceMethod->Parameter(method.parameterTypeName + " const &req");
                     }
                     std::string result;
                     if (method.result) {
-                        result = method.result->name + " const&";
+                        result = method.resultTypeName + " const&";
                     }
                     serviceMethod->Parameter("std::function<void(" + result + ")> const &cb");
                     serviceMethod->Parameter("lib::error err");
@@ -2690,7 +2938,7 @@ switch (methodId)
                         google::protobuf::io::Printer printer(&stream, options);
                         
                         printer.Print("uint32 event_id = $id$ + this->rpc_offset;\n", "id", SimpleItoa(id));
-                        printer.Print("this->client->unsubscribe(event_id, info.Name, \"$procedure_name$\", err);\n",
+                        printer.Print("this->client->unsubscribe(event_id, Info.name, \"$procedure_name$\", err);\n",
                                 "procedure_name", method.name);
                         printer.Print("if (err) {\n    return;\n}\n");
                         printer.Print("this->client->unregister_event_callback(event_id);\n");
@@ -2710,7 +2958,7 @@ switch (methodId)
     
                         
                         if (method.result) {
-                            printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.result->name);
+                            printer.Print("$T$ msg = serialrpc::unmarshal<$T$>(conn, err);\n", "T", method.resultTypeName);
                             printer.Print("if (err) {\n    return;\n}\n");
                             printer.Print("if (this->$method$_cb) {\n", "method", method.name);
                             printer.Indent();
@@ -2735,7 +2983,7 @@ switch (methodId)
                 } else {
                     std::string rettype;
                     if (method.result) {
-                        rettype = method.result->name;
+                        rettype = method.resultTypeName;
                     } else {
                         rettype = "void";
                     }
@@ -2749,25 +2997,25 @@ switch (methodId)
     
                         if (method.result) {
                             if (method.parameter) {
-                                printer.Print("return this->client->call<$Req$, $Ret$>($id$, info.Name, \"$procedure_name$\", req, err);\n",
+                                printer.Print("return this->client->call<$Req$, $Ret$>($id$, Info.name, \"$procedure_name$\", req, err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name,
-                                    "Req", method.parameter->name + " const&", 
+                                    "Req", method.parameterTypeName + " const&",
                                     "Ret", rettype);
                             } else {
-                                printer.Print("return this->client->call<$Ret$>($id$, info.Name, \"$procedure_name$\", err);\n",
+                                printer.Print("return this->client->call<$Ret$>($id$, Info.name, \"$procedure_name$\", err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name,
                                     "Ret", rettype);
                             }
                         } else {
                             if (method.parameter) {
-                                printer.Print("this->client->call_void<$Req$>($id$, info.Name, \"$procedure_name$\", req, err);\n",
+                                printer.Print("this->client->call_void<$Req$>($id$, Info.name, \"$procedure_name$\", req, err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name,
-                                    "Req", method.parameter->name + " const&");
+                                    "Req", method.parameterTypeName + " const&");
                             } else {
-                                printer.Print("this->client->call_void($id$, info.Name, \"$procedure_name$\", err);\n",
+                                printer.Print("this->client->call_void($id$, Info.name, \"$procedure_name$\", err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name);
                             }
@@ -2777,7 +3025,7 @@ switch (methodId)
                     auto serviceMethod = std::make_shared<Function>(method.name, code.str(), rettype, Function::fOverride);
                     
                     if (method.parameter) {
-                            serviceMethod->Parameter(method.parameter->name + " const &req");
+                            serviceMethod->Parameter(method.parameterTypeName + " const &req");
                     }
                     serviceMethod->Parameter("lib::error err");
                     service_struct->Add(serviceMethod);

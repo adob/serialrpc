@@ -138,6 +138,38 @@ if(NOT CMAKE_CROSSCOMPILING)
 endif()
 
 if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+  set(_import_test_output_dir
+    ${CMAKE_CURRENT_BINARY_DIR}/import_test_output
+  )
+  file(MAKE_DIRECTORY ${_import_test_output_dir}/testdata)
+  add_custom_command(
+    OUTPUT
+      ${_import_test_output_dir}/testdata/imported_types.pb_msg.cc
+      ${_import_test_output_dir}/testdata/imported_types.pb_msg.h
+      ${_import_test_output_dir}/testdata/imported_types.pb_client.cc
+      ${_import_test_output_dir}/testdata/imported_types.pb_client.h
+      ${_import_test_output_dir}/testdata/imported_types.pb_server.cc
+      ${_import_test_output_dir}/testdata/imported_types.pb_server.h
+      ${_import_test_output_dir}/testdata/importing_service.pb_msg.cc
+      ${_import_test_output_dir}/testdata/importing_service.pb_msg.h
+      ${_import_test_output_dir}/testdata/importing_service.pb_client.cc
+      ${_import_test_output_dir}/testdata/importing_service.pb_client.h
+      ${_import_test_output_dir}/testdata/importing_service.pb_server.cc
+      ${_import_test_output_dir}/testdata/importing_service.pb_server.h
+    COMMAND ${_protoc_exe}
+      --plugin=protoc-gen-serialrpc=$<TARGET_FILE:serialrpcgen_plugin>
+      --serialrpc_out=${_import_test_output_dir}
+      -I ${CMAKE_CURRENT_LIST_DIR}
+      -I ${SERIALRPC_PROTOBUF_PROTO_DIR}
+      ${CMAKE_CURRENT_LIST_DIR}/testdata/imported_types.proto
+      ${CMAKE_CURRENT_LIST_DIR}/testdata/importing_service.proto
+    DEPENDS
+      ${CMAKE_CURRENT_LIST_DIR}/testdata/imported_types.proto
+      ${CMAKE_CURRENT_LIST_DIR}/testdata/importing_service.proto
+      serialrpcgen_plugin
+    COMMENT "Generating imported-type regression fixtures"
+  )
+
   add_custom_command(
     OUTPUT
       ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_msg.cc
@@ -161,19 +193,26 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
   add_executable(${PROJECT_NAME}_tests
     ${CMAKE_CURRENT_LIST_DIR}/encoding_test.cc
     ${CMAKE_CURRENT_LIST_DIR}/e2e_test.cc
+    ${CMAKE_CURRENT_LIST_DIR}/cmd/serialrpc/call.cc
     ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_msg.cc
     ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_client.cc
     ${CMAKE_CURRENT_LIST_DIR}/generated/example.pb_server.cc
+    ${_import_test_output_dir}/testdata/imported_types.pb_msg.cc
+    ${_import_test_output_dir}/testdata/importing_service.pb_msg.cc
+    ${_import_test_output_dir}/testdata/importing_service.pb_client.cc
+    ${_import_test_output_dir}/testdata/importing_service.pb_server.cc
   )
 
   target_compile_features(${PROJECT_NAME}_tests PRIVATE cxx_std_23)
   target_include_directories(${PROJECT_NAME}_tests PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/generated
+    ${_import_test_output_dir}
   )
 
   target_link_libraries(${PROJECT_NAME}_tests PRIVATE
     ${PROJECT_NAME}::client
     baselib::test_main
+    protobuf::libprotobuf
   )
 
   add_test(NAME ${PROJECT_NAME}_tests COMMAND ${PROJECT_NAME}_tests)

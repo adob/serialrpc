@@ -12,23 +12,27 @@
 #include "generated/example.pb_server.h"
 #include "generated/serialrpc_protocol.pb_client.h"
 #include "generated/serialrpc_protocol.pb_msg.h"
+#include "cmd/serialrpc/call.h"
 
 #include <memory>
 #include <string_view>
+#include <google/protobuf/descriptor.pb.h>
+#include <google/protobuf/dynamic_message.h>
+#include <google/protobuf/text_format.h>
 
 using namespace lib;
 using namespace serialrpc;
 
 void test_generated_service_method_table(testing::T &t) {
-    auto const& service = examplepb::SumService::info;
-    if (std::string_view(service.Name) != std::string_view("SumService")
-        || std::string_view(service.Package) != std::string_view("example")
-        || service.UUID != std::array<uint8_t, 16>{
+    auto const& service = examplepb::SumService::Info;
+    if (service.name != "SumService"
+        || service.package != "example"
+        || service.uuid != std::array<uint8_t, 16>{
             0x4f, 0x90, 0xfb, 0x19, 0x7b, 0x58, 0x47, 0x55,
             0xbb, 0x1f, 0x3c, 0x81, 0xdc, 0x0a, 0x6d, 0x4d}
-        || service.MajorVersion != 0
-        || service.MinorVersion != 0
-        || service.NumEndpoints != 2) {
+        || service.major_version != 0
+        || service.minor_version != 0
+        || service.num_endpoints != 2) {
         t.errorf("SumService generated incorrect service metadata");
     }
 
@@ -38,13 +42,136 @@ void test_generated_service_method_table(testing::T &t) {
         t.errorf("SumService has %v methods; want 2", methods.size());
         return;
     }
-    if (std::string_view(methods[0].name) != std::string_view("sum") || methods[0].id != 1) {
+    if (methods[0].name != "sum" || methods[0].id != 1) {
         t.errorf("SumService method 0 is {%q, %v}; want {sum, 1}",
             methods[0].name, methods[0].id);
     }
-    if (std::string_view(methods[1].name) != std::string_view("sum_events") || methods[1].id != 2) {
+    if (methods[1].name != "sum_events" || methods[1].id != 2) {
         t.errorf("SumService method 1 is {%q, %v}; want {sum_events, 2}",
             methods[1].name, methods[1].id);
+    }
+}
+
+void test_generated_method_schema(testing::T &t) {
+    auto const &method_metadata = examplepb::SumService::Methods[0];
+    if (method_metadata.requestType != &examplepb::SumRequest::Info
+        || method_metadata.responseType != &examplepb::SumResponse::Info
+        || method_metadata.requestType->name != "example.SumRequest"
+        || method_metadata.responseType->name != "example.SumResponse"
+        || len(method_metadata.requestType->fields) != 2
+        || method_metadata.requestType->fields.begin()->name != "left"
+        || method_metadata.requestType->fields.begin()->type != &TypeInt32) {
+        t.errorf("generated method schema does not describe SumService.sum");
+        return;
+    }
+
+    auto const &send_metadata = examplepb::CANService::Methods[0];
+    if (send_metadata.responseType != &TypeVoid
+        || examplepb::CANService::Types[1] != &TypeVoid) {
+        t.errorf("generated method schema does not use the shared void type");
+        return;
+    }
+
+    serialrpcpb::ServiceInfo service_info;
+    serialrpcpb::TypeInfo request_info;
+    request_info.id = 1;
+    request_info.type = serialrpcpb::FieldType::FieldTypeMessage;
+    request_info.name = "example.SumRequest";
+    request_info.fields.push_back({
+        .name = "left", .number = 1,
+        .type = serialrpcpb::FieldType::FieldTypeInt32});
+    request_info.fields.push_back({
+        .name = "right", .number = 2,
+        .type = serialrpcpb::FieldType::FieldTypeInt32});
+    request_info.fields.push_back({
+        .name = "first_mode", .number = 3,
+        .type = serialrpcpb::FieldType::FieldTypeEnum, .type_id = 3});
+    request_info.fields.push_back({
+        .name = "second_mode", .number = 4,
+        .type = serialrpcpb::FieldType::FieldTypeEnum, .type_id = 4});
+    service_info.types.push_back(request_info);
+
+    serialrpcpb::TypeInfo response_info;
+    response_info.id = 2;
+    response_info.type = serialrpcpb::FieldType::FieldTypeMessage;
+    response_info.name = "example.SumResponse";
+    response_info.fields.push_back({
+        .name = "answer", .number = 1,
+        .type = serialrpcpb::FieldType::FieldTypeInt32});
+    service_info.types.push_back(response_info);
+
+    serialrpcpb::TypeInfo first_enum;
+    first_enum.id = 3;
+    first_enum.type = serialrpcpb::FieldType::FieldTypeEnum;
+    first_enum.name = "example.FirstMode";
+    first_enum.enum_values.push_back({.name = "Unknown", .number = 0});
+    first_enum.enum_values.push_back({.name = "Default", .number = 0});
+    first_enum.enum_values.push_back({.name = "Enabled", .number = 1});
+    service_info.types.push_back(first_enum);
+
+    serialrpcpb::TypeInfo second_enum;
+    second_enum.id = 4;
+    second_enum.type = serialrpcpb::FieldType::FieldTypeEnum;
+    second_enum.name = "example.SecondMode";
+    second_enum.enum_values.push_back({.name = "Unknown", .number = 0});
+    second_enum.enum_values.push_back({.name = "Disabled", .number = 1});
+    service_info.types.push_back(second_enum);
+
+    serialrpcpb::MethodInfo method_info;
+    method_info.name = "sum";
+    method_info.id = 1;
+    method_info.request_type = 1;
+    method_info.response_type = 2;
+
+    google::protobuf::DescriptorPool pool(
+        google::protobuf::DescriptorPool::generated_pool());
+    auto method = serialrpc::cli::detail::build_method_descriptor(
+        service_info, method_info, pool, error::panic);
+    if (method == nullptr) {
+        t.errorf("could not build a dynamic method descriptor");
+        return;
+    }
+    auto const *first_mode = method->input_type()->FindFieldByName("first_mode");
+    auto const *second_mode = method->input_type()->FindFieldByName("second_mode");
+    if (first_mode == nullptr || second_mode == nullptr
+        || first_mode->enum_type() == second_mode->enum_type()
+        || first_mode->enum_type()->FindValueByName("Unknown") == nullptr
+        || second_mode->enum_type()->FindValueByName("Unknown") == nullptr
+        || !first_mode->enum_type()->options().allow_alias()) {
+        t.errorf("dynamic schema does not preserve enum scopes and aliases");
+        return;
+    }
+
+    google::protobuf::DynamicMessageFactory factory(&pool);
+    auto request = std::unique_ptr<google::protobuf::Message>(
+        factory.GetPrototype(method->input_type())->New());
+    if (!google::protobuf::TextFormat::ParseFromString(
+            "left: 10 right: 20", request.get())) {
+        t.errorf("could not parse dynamic SumRequest");
+        return;
+    }
+
+    io::Buffer request_buffer;
+    serialrpc::cli::detail::marshal(
+        *request, request_buffer, error::panic);
+    auto typed_request = unmarshal<examplepb::SumRequest>(
+        request_buffer, error::panic);
+    if (typed_request.left != 10 || typed_request.right != 20) {
+        t.errorf("dynamic request encoding got {%v, %v}; want {10, 20}",
+                 typed_request.left, typed_request.right);
+    }
+
+    io::Buffer response_buffer;
+    marshal(response_buffer, examplepb::SumResponse{.answer = 30},
+            error::panic);
+    auto response = std::unique_ptr<google::protobuf::Message>(
+        factory.GetPrototype(method->output_type())->New());
+    serialrpc::cli::detail::unmarshal(
+        *response, response_buffer, error::panic);
+    auto answer = response->GetReflection()->GetInt32(
+        *response, response->GetDescriptor()->FindFieldByName("answer"));
+    if (answer != 30) {
+        t.errorf("dynamic response decoding got %v; want 30", answer);
     }
 }
 
@@ -214,7 +341,7 @@ void test_bare_unknown_reply_fails_connection_and_wakes_call(testing::T &t) {
         varint::write_uint32(*server_side, ProtocolVersion, error::panic);
 
         serialrpcpb::ServiceDef service_def =
-            to_service_def(examplepb::SumServiceBase::info);
+            to_service_def(examplepb::SumServiceBase::Info);
         Stack stack;
         marshal_field(*server_side, serialrpcpb::ServerHello::ServicesFieldNumber, service_def, error::panic, MaxNesting, stack);
         server_side->write_byte(byte(Tag::End), error::panic);
@@ -466,6 +593,7 @@ void test_e2e(testing::T &t) {
                 first_method_name.data,
                 first_method_name.len) != std::string_view("sum")
                 || sum_service.methods[0].id != 1
+                || sum_service.methods[0].request_type != 0
                 || std::string_view(
                 second_method_name.data,
                 second_method_name.len) != std::string_view("sum_events")
@@ -473,6 +601,25 @@ void test_e2e(testing::T &t) {
                 t.errorf("discovery returned incorrect SumService method metadata");
             }
         }
+    }
+
+    serialrpcpb::ListServicesResponse full_services =
+        discovery_stub.ListServices({.full = true}, error::panic);
+    auto const &sum_service_info = full_services.services[1];
+    auto const &sum_info = sum_service_info.methods[0];
+    if (sum_info.request_type != 1 || sum_info.response_type != 2
+        || sum_service_info.types.size() != 4
+        || str(sum_service_info.types[0].name) != "example.SumRequest"
+        || sum_service_info.types[0].fields.size() != 2
+        || str(sum_service_info.types[0].fields[0].name) != "left") {
+        t.errorf("full discovery returned incorrect SumService.sum schema");
+    }
+
+    auto const &can_service_info = full_services.services[2];
+    if (can_service_info.methods[0].response_type != 2
+        || can_service_info.types.size() != 2
+        || str(can_service_info.types[1].name) != "void") {
+        t.errorf("full discovery returned incorrect shared void schema");
     }
 
     print "making request...";

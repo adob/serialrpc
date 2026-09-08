@@ -158,7 +158,9 @@ namespace application
     class ServiceGenerator
     {
     public:
-        ServiceGenerator(const std::shared_ptr<const EchoService>& service, Entities& formatter);
+        ServiceGenerator(const std::shared_ptr<const EchoService>& service,
+                         Entities& formatter,
+                         const std::string& metadataPrefix);
         ServiceGenerator(const ServiceGenerator& other) = delete;
         ServiceGenerator& operator=(const ServiceGenerator& other) = delete;
         ~ServiceGenerator() = default;
@@ -180,6 +182,7 @@ namespace application
 
     private:
         std::shared_ptr<const EchoService> service;
+        std::string metadataPrefix;
         Struct* serviceFormatter;
         Class* serviceProxyFormatter;
     };

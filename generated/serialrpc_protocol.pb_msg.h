@@ -15,7 +15,30 @@
 #include "serialrpc/service_info.h"
 
 namespace serialrpcpb {
+    enum class FieldType {
+        FieldTypeUnknown = 0,
+        FieldTypeDouble = 1,
+        FieldTypeFloat = 2,
+        FieldTypeInt64 = 3,
+        FieldTypeUint64 = 4,
+        FieldTypeInt32 = 5,
+        FieldTypeFixed64 = 6,
+        FieldTypeFixed32 = 7,
+        FieldTypeBool = 8,
+        FieldTypeString = 9,
+        FieldTypeMessage = 11,
+        FieldTypeBytes = 12,
+        FieldTypeUint32 = 13,
+        FieldTypeEnum = 14,
+        FieldTypeSfixed32 = 15,
+        FieldTypeSfixed64 = 16,
+        FieldTypeSint32 = 17,
+        FieldTypeSint64 = 18
+    };
+
     struct ServiceDef {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(ServiceDef const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static ServiceDef unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -40,6 +63,8 @@ namespace serialrpcpb {
     };
 
     struct ServerHello {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(ServerHello const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static ServerHello unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -55,7 +80,87 @@ namespace serialrpcpb {
         static const uint32_t ServicesFieldNumber = 2;
     };
 
+    struct FieldInfo {
+        static const serialrpc::TypeInfo Info;
+
+        static void marshal(FieldInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static FieldInfo unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const FieldInfo& other) const;
+
+        lib::InlineString<64> name = {};
+
+        uint32_t number = {};
+
+        FieldType type = {};
+
+        uint32_t type_id = {};
+
+        bool repeated = {};
+
+        static const uint32_t NameFieldNumber = 1;
+
+        static const uint32_t NumberFieldNumber = 2;
+
+        static const uint32_t TypeFieldNumber = 3;
+
+        static const uint32_t TypeIdFieldNumber = 4;
+
+        static const uint32_t RepeatedFieldNumber = 5;
+    };
+
+    struct EnumValueInfo {
+        static const serialrpc::TypeInfo Info;
+
+        static void marshal(EnumValueInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static EnumValueInfo unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const EnumValueInfo& other) const;
+
+        lib::InlineString<64> name = {};
+
+        int32_t number = {};
+
+        static const uint32_t NameFieldNumber = 1;
+
+        static const uint32_t NumberFieldNumber = 2;
+    };
+
+    struct TypeInfo {
+        static const serialrpc::TypeInfo Info;
+
+        static void marshal(TypeInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static TypeInfo unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const TypeInfo& other) const;
+
+        uint32_t id = {};
+
+        FieldType type = {};
+
+        lib::InlineString<128> name = {};
+
+        std::vector<FieldInfo> fields = {};
+
+        std::vector<EnumValueInfo> enum_values = {};
+
+        static const uint32_t IdFieldNumber = 1;
+
+        static const uint32_t TypeFieldNumber = 2;
+
+        static const uint32_t NameFieldNumber = 3;
+
+        static const uint32_t FieldsFieldNumber = 4;
+
+        static const uint32_t EnumValuesFieldNumber = 5;
+    };
+
     struct MethodInfo {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(MethodInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static MethodInfo unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -66,12 +171,30 @@ namespace serialrpcpb {
 
         uint32_t id = {};
 
+        uint32_t request_type = {};
+
+        uint32_t response_type = {};
+
+        bool client_streaming = {};
+
+        bool server_streaming = {};
+
         static const uint32_t NameFieldNumber = 1;
 
         static const uint32_t IdFieldNumber = 2;
+
+        static const uint32_t RequestTypeFieldNumber = 3;
+
+        static const uint32_t ResponseTypeFieldNumber = 4;
+
+        static const uint32_t ClientStreamingFieldNumber = 5;
+
+        static const uint32_t ServerStreamingFieldNumber = 6;
     };
 
     struct ServiceInfo {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(ServiceInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static ServiceInfo unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -88,6 +211,8 @@ namespace serialrpcpb {
 
         std::vector<MethodInfo> methods = {};
 
+        std::vector<TypeInfo> types = {};
+
         static const uint32_t NameFieldNumber = 1;
 
         static const uint32_t UuidFieldNumber = 2;
@@ -97,17 +222,27 @@ namespace serialrpcpb {
         static const uint32_t MinorVersionFieldNumber = 4;
 
         static const uint32_t MethodsFieldNumber = 5;
+
+        static const uint32_t TypesFieldNumber = 6;
     };
 
     struct ListServicesRequest {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(ListServicesRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static ListServicesRequest unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
 
         bool operator==(const ListServicesRequest& other) const;
+
+        bool full = {};
+
+        static const uint32_t FullFieldNumber = 1;
     };
 
     struct ListServicesResponse {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(ListServicesResponse const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static ListServicesResponse unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -119,9 +254,134 @@ namespace serialrpcpb {
         static const uint32_t ServicesFieldNumber = 1;
     };
 
+    namespace detail {
+    inline const serialrpc::TypeInfo serialrpc_5fprotocol_2eproto_type_serialrpc_2eFieldType = {
+        .kind = serialrpc::TypeKind::Enum,
+        .name = "serialrpc.FieldType",
+        .enumValues = {
+            {"FieldTypeUnknown", 0},
+            {"FieldTypeDouble", 1},
+            {"FieldTypeFloat", 2},
+            {"FieldTypeInt64", 3},
+            {"FieldTypeUint64", 4},
+            {"FieldTypeInt32", 5},
+            {"FieldTypeFixed64", 6},
+            {"FieldTypeFixed32", 7},
+            {"FieldTypeBool", 8},
+            {"FieldTypeString", 9},
+            {"FieldTypeMessage", 11},
+            {"FieldTypeBytes", 12},
+            {"FieldTypeUint32", 13},
+            {"FieldTypeEnum", 14},
+            {"FieldTypeSfixed32", 15},
+            {"FieldTypeSfixed64", 16},
+            {"FieldTypeSint32", 17},
+            {"FieldTypeSint64", 18},
+        },
+    };
+}
+inline const serialrpc::TypeInfo ServiceDef::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.ServiceDef",
+    .fields = {
+        {"uuid", 1, &serialrpc::TypeBytes, false},
+        {"major_version", 2, &serialrpc::TypeInt32, false},
+        {"minor_version", 3, &serialrpc::TypeInt32, false},
+        {"num_endpoints", 4, &serialrpc::TypeInt32, false},
+    },
+};
+inline const serialrpc::TypeInfo ServerHello::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.ServerHello",
+    .fields = {
+        {"protocol_version", 1, &serialrpc::TypeUint32, false},
+        {"services", 2, &::serialrpcpb::ServiceDef::Info, true},
+    },
+};
+inline const serialrpc::TypeInfo FieldInfo::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.FieldInfo",
+    .fields = {
+        {"name", 1, &serialrpc::TypeString, false},
+        {"number", 2, &serialrpc::TypeUint32, false},
+        {"type", 3, &detail::serialrpc_5fprotocol_2eproto_type_serialrpc_2eFieldType, false},
+        {"type_id", 4, &serialrpc::TypeUint32, false},
+        {"repeated", 5, &serialrpc::TypeBool, false},
+    },
+};
+inline const serialrpc::TypeInfo EnumValueInfo::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.EnumValueInfo",
+    .fields = {
+        {"name", 1, &serialrpc::TypeString, false},
+        {"number", 2, &serialrpc::TypeInt32, false},
+    },
+};
+inline const serialrpc::TypeInfo TypeInfo::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.TypeInfo",
+    .fields = {
+        {"id", 1, &serialrpc::TypeUint32, false},
+        {"type", 2, &detail::serialrpc_5fprotocol_2eproto_type_serialrpc_2eFieldType, false},
+        {"name", 3, &serialrpc::TypeString, false},
+        {"fields", 4, &::serialrpcpb::FieldInfo::Info, true},
+        {"enum_values", 5, &::serialrpcpb::EnumValueInfo::Info, true},
+    },
+};
+inline const serialrpc::TypeInfo MethodInfo::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.MethodInfo",
+    .fields = {
+        {"name", 1, &serialrpc::TypeString, false},
+        {"id", 2, &serialrpc::TypeUint32, false},
+        {"request_type", 3, &serialrpc::TypeUint32, false},
+        {"response_type", 4, &serialrpc::TypeUint32, false},
+        {"client_streaming", 5, &serialrpc::TypeBool, false},
+        {"server_streaming", 6, &serialrpc::TypeBool, false},
+    },
+};
+inline const serialrpc::TypeInfo ServiceInfo::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.ServiceInfo",
+    .fields = {
+        {"name", 1, &serialrpc::TypeString, false},
+        {"uuid", 2, &serialrpc::TypeBytes, false},
+        {"major_version", 3, &serialrpc::TypeInt32, false},
+        {"minor_version", 4, &serialrpc::TypeInt32, false},
+        {"methods", 5, &::serialrpcpb::MethodInfo::Info, true},
+        {"types", 6, &::serialrpcpb::TypeInfo::Info, true},
+    },
+};
+inline const serialrpc::TypeInfo ListServicesRequest::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.ListServicesRequest",
+    .fields = {
+        {"full", 1, &serialrpc::TypeBool, false},
+    },
+};
+inline const serialrpc::TypeInfo ListServicesResponse::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "serialrpc.ListServicesResponse",
+    .fields = {
+        {"services", 1, &::serialrpcpb::ServiceInfo::Info, true},
+    },
+};
+namespace detail {
+    inline constexpr std::array<serialrpc::TypeInfo const*, 8> serialrpc_5fprotocol_2eproto_DiscoveryService_types = {{
+        &::serialrpcpb::ListServicesRequest::Info,
+        &::serialrpcpb::ListServicesResponse::Info,
+        &::serialrpcpb::ServiceInfo::Info,
+        &::serialrpcpb::MethodInfo::Info,
+        &::serialrpcpb::TypeInfo::Info,
+        &::serialrpcpb::FieldInfo::Info,
+        &::serialrpcpb::EnumValueInfo::Info,
+        &serialrpc_5fprotocol_2eproto_type_serialrpc_2eFieldType,
+    }};
+}
+
     struct DiscoveryService {
         // uuid: b2fc7a75-0f8d-4147-a117-1556aee1c4c7
-        static constexpr serialrpc::ServiceInfo info = {
+        static constexpr serialrpc::ServiceInfo Info = {
             "DiscoveryService",
             "serialrpc",
             {0xb2, 0xfc, 0x7a, 0x75, 0x0f, 0x8d, 0x41, 0x47, 0xa1, 0x17, 0x15, 0x56, 0xae, 0xe1, 0xc4, 0xc7},
@@ -131,8 +391,10 @@ namespace serialrpcpb {
         };
 
         static constexpr std::array<serialrpc::MethodInfo, 1> Methods = {{
-            {"ListServices", 1},
+            {"ListServices", 1, &::serialrpcpb::ListServicesRequest::Info, &::serialrpcpb::ListServicesResponse::Info, false, false},
         }};
+
+        static constexpr auto const& Types = detail::serialrpc_5fprotocol_2eproto_DiscoveryService_types;
 
         virtual ListServicesResponse ListServices(ListServicesRequest const &req, lib::error err) = 0;
     };

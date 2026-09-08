@@ -165,6 +165,7 @@ namespace application
 
         std::shared_ptr<EchoMessage> message;
         const google::protobuf::FieldDescriptor& descriptor;
+        std::string typeName;
     };
 
     class EchoFieldBytes
@@ -233,6 +234,7 @@ namespace application
         void Accept(EchoFieldVisitor& visitor) const override;
 
         std::shared_ptr<EchoEnum> type;
+        std::string typeName;
     };
 
     class EchoFieldOptional
@@ -274,10 +276,13 @@ namespace application
     public:
         EchoMethod(const google::protobuf::MethodDescriptor& descriptor, EchoRoot& root);
 
+        const google::protobuf::MethodDescriptor* descriptor;
         std::string name;
         uint32_t methodId;
         std::shared_ptr<EchoMessage> parameter;
         std::shared_ptr<EchoMessage> result;
+        std::string parameterTypeName;
+        std::string resultTypeName;
         bool server_streaming = false;
     };
 

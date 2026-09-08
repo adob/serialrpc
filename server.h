@@ -51,25 +51,27 @@ namespace serialrpc {
 
     inline serialrpcpb::ServiceDef to_service_def(ServiceInfo const &info) {
         serialrpcpb::ServiceDef def;
-        def.uuid = str(info.UUID);
-        def.major_version = info.MajorVersion;
-        def.minor_version = info.MinorVersion;
-        def.num_endpoints = info.NumEndpoints;
+        def.uuid = str(info.uuid);
+        def.major_version = info.major_version;
+        def.minor_version = info.minor_version;
+        def.num_endpoints = info.num_endpoints;
 
         return def;
     }
 
     struct ServiceDescription {
-        ServiceInfo Info;
-        view<MethodInfo> Methods;
+        ServiceInfo info;
+        view<MethodInfo> methods;
+        view<TypeInfo const*> types;
     };
 
     template <typename T>
     constexpr ServiceDescription describe_service() {
-        static_assert(T::info.NumEndpoints == int(T::dispatch_table.size()));
+        static_assert(T::Info.num_endpoints == T::dispatch_table.size());
         return {
-            T::info,
+            T::Info,
             {T::Methods.data(), T::Methods.size()},
+            {T::Types.data(), T::Types.size()},
         };
     }
 
@@ -88,8 +90,9 @@ namespace serialrpc {
     }
 
     struct DiscoveryServiceImpl {
-        static constexpr ServiceInfo info = serialrpcpb::DiscoveryService::info;
+        static constexpr ServiceInfo Info = serialrpcpb::DiscoveryService::Info;
         static constexpr auto Methods = serialrpcpb::DiscoveryService::Methods;
+        static constexpr auto Types = serialrpcpb::DiscoveryService::Types;
 
         view<ServiceDescription> services;
 
@@ -204,7 +207,7 @@ namespace serialrpc {
       Server &s = *this;
 
       for (ServiceDescription const &desc : s.service_descriptions) {
-        s.send_service_description(conn, to_service_def(desc.Info), err);
+        s.send_service_description(conn, to_service_def(desc.info), err);
         if (err) {
           return;
         }

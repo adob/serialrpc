@@ -477,9 +477,53 @@ void Client::handle_reply(error err) {
 
     if (call_data->unmarshal) {
         call_data->unmarshal(call_data, *c.conn, err);
+    } else if (call_data->unmarshal_raw) {
+        call_data->unmarshal_raw(call_data->resp, *c.conn, err);
     }
 
     call_data->response_received.notify();
+}
+
+void Client::call_raw(
+    uint32 rpc_id,
+    str service_name,
+    str procedure_name,
+    io::WriterTo const *request,
+    void *response,
+    void (*unmarshal_response)(void*, io::Reader&, error),
+    error err) {
+    Client &c = *this;
+    CallData call_data = {
+        .client = this,
+        .resp = response,
+        .err = &err,
+        .service_name = service_name,
+        .procedure_name = procedure_name,
+        .unmarshal_raw = unmarshal_response,
+    };
+
+    {
+        sync::Lock lock(c.call_mtx);
+        c.start_request(rpc_id, &call_data, err);
+        if (err) {
+            c.fail(lock);
+            return;
+        }
+        if (request != nil) {
+            request->write_to(*c.conn, err);
+            if (err) {
+                c.fail(lock);
+                return;
+            }
+        }
+        c.finish_request(err);
+        if (err) {
+            c.fail(lock);
+            return;
+        }
+    }
+
+    call_data.response_received.wait();
 }
 
 void Client::handle_chunked_error_reply(error err) {

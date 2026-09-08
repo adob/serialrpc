@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package serialrpc_test.consumer;
+
+import "serialrpc.proto";
+import "testdata/imported_types.proto";
+
+message Request {
+  serialrpc_test.imported.Shared shared = 1;
+  serialrpc_test.imported.Mode mode = 2;
+}
+
+service ImportingService {
+  option (uuid) = "9d94cb75-7450-4804-b686-19a00fb3064b";
+
+  rpc Get(Request) returns (serialrpc_test.imported.Shared) {
+    option (method_id) = 1;
+  }
+}

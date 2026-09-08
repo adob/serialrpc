@@ -100,14 +100,18 @@ for (auto const& method : examplepb::SumService::Methods) {
 }
 ```
 
-They also expose a compile-time `info` member containing the service name,
+They also expose a compile-time `Info` constant containing the service name,
 package, UUID, major and minor versions, and number of endpoints.
 
 Every `serialrpc::Server` automatically exposes
 `serialrpc.DiscoveryService`. A client can connect a generated
 `serialrpcpb::DiscoveryServiceStub` and call `ListServices` to retrieve the
 fully qualified name, UUID, version, and method table for every exposed
-service. The discovery service includes itself in the result.
+service. The discovery service includes itself in the result. Setting
+`ListServicesRequest.full` also includes a shared type table for each service;
+methods and compound fields refer to that table by ID. This metadata uses
+normal serialrpc encoding and lets host tools inspect and call methods without
+local `.proto` files, without repeating a type used by several methods.
 
 The host-side `serialrpc` command can query this service. `list` is the
 canonical spelling, with `ls` available as a short alias:
@@ -116,16 +120,44 @@ canonical spelling, with `ls` available as a short alias:
 serialrpc list /dev/ttyACM0
 ```
 
-The output follows a compact `grpc_cli`-style service summary, listing each
-fully qualified service name followed by its exposed RPC methods:
+The output follows a compact `grpc_cli`-style summary. It lists all services
+and RPC signatures first, then prints deduplicated protobuf-style definitions
+of their request, response, and nested types:
 
 ```text
-serialrpc.DiscoveryService
-  rpc ListServices
-example.SumService
-  rpc sum
-  rpc sum_events
+Services:
+
+service serialrpc.DiscoveryService {
+  rpc ListServices(serialrpc.ListServicesRequest) returns (serialrpc.ListServicesResponse) {}
+}
+
+service example.SumService {
+  rpc sum(example.SumRequest) returns (example.SumResponse) {}
+  rpc sum_events(example.SumEventsRequest) returns (stream example.SumEvent) {}
+}
+
+Types:
+
+message example.SumRequest {
+  int32 left = 1;
+  int32 right = 2;
+}
+
+message example.SumResponse {
+  int32 answer = 1;
+}
 ```
+
+`call` uses full server discovery and protobuf text format for requests and
+responses:
+
+```sh
+serialrpc call /dev/ttyACM0 multitool.SystemService.get_status
+serialrpc call /dev/ttyACM0 example.SumService.sum 'left: 10 right: 20'
+```
+
+The first form is sufficient for methods with a `void` request. Only unary
+methods are currently supported by `call`.
 
 Client generation produces one stub per service. Pass the stubs to
 `serialrpc::connect`, then call RPC methods directly:

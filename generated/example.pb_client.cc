@@ -8,26 +8,26 @@ using namespace lib;
 
 namespace examplepb {
     SumServiceStub::SumServiceStub() {
-        this->uuid = str(SumService::info.UUID);
-        this->major_version = SumService::info.MajorVersion;
-        this->minor_version = SumService::info.MinorVersion;
-        this->name = SumService::info.Name;
+        this->uuid = str(SumService::Info.uuid);
+        this->major_version = SumService::Info.major_version;
+        this->minor_version = SumService::Info.minor_version;
+        this->name = SumService::Info.name;
     }
 
     SumResponse SumServiceStub::sum(SumRequest const &req, lib::error err) {
-        return this->client->call<SumRequest const&, SumResponse>(0 + this->rpc_offset, info.Name, "sum", req, err);
+        return this->client->call<SumRequest const&, SumResponse>(0 + this->rpc_offset, Info.name, "sum", req, err);
     }
 
     void SumServiceStub::subscribe_sum_events(SumEventsRequest const &req, std::function<void(SumEvent const&)> const &cb, lib::error err) {
         uint32 event_id = 1 + this->rpc_offset;
         this->sum_events_cb = cb;
         this->client->register_event_callback(event_id, std::bind(&SumServiceStub::handle_sum_events, this, std::placeholders::_1, std::placeholders::_2));
-        this->client->subscribe(event_id, info.Name, "sum_events", req, err);
+        this->client->subscribe(event_id, Info.name, "sum_events", req, err);
     }
 
     void SumServiceStub::unsubscribe_sum_events(lib::error err) {
         uint32 event_id = 1 + this->rpc_offset;
-        this->client->unsubscribe(event_id, info.Name, "sum_events", err);
+        this->client->unsubscribe(event_id, Info.name, "sum_events", err);
         if (err) {
             return;
         }
@@ -46,37 +46,37 @@ namespace examplepb {
     }
 
     CANServiceStub::CANServiceStub() {
-        this->uuid = str(CANService::info.UUID);
-        this->major_version = CANService::info.MajorVersion;
-        this->minor_version = CANService::info.MinorVersion;
-        this->name = CANService::info.Name;
+        this->uuid = str(CANService::Info.uuid);
+        this->major_version = CANService::Info.major_version;
+        this->minor_version = CANService::Info.minor_version;
+        this->name = CANService::Info.name;
     }
 
     void CANServiceStub::send(CANFrame const &req, lib::error err) {
-        this->client->call_void<CANFrame const&>(0 + this->rpc_offset, info.Name, "send", req, err);
+        this->client->call_void<CANFrame const&>(0 + this->rpc_offset, Info.name, "send", req, err);
     }
 
     ExampleServiceStub::ExampleServiceStub() {
-        this->uuid = str(ExampleService::info.UUID);
-        this->major_version = ExampleService::info.MajorVersion;
-        this->minor_version = ExampleService::info.MinorVersion;
-        this->name = ExampleService::info.Name;
+        this->uuid = str(ExampleService::Info.uuid);
+        this->major_version = ExampleService::Info.major_version;
+        this->minor_version = ExampleService::Info.minor_version;
+        this->name = ExampleService::Info.name;
     }
 
     void ExampleServiceStub::say_hello(lib::error err) {
-        this->client->call_void(0 + this->rpc_offset, info.Name, "say_hello", err);
+        this->client->call_void(0 + this->rpc_offset, Info.name, "say_hello", err);
     }
 
     void ExampleServiceStub::subscribe_example_event1(std::function<void()> const &cb, lib::error err) {
         uint32 event_id = 1 + this->rpc_offset;
         this->example_event1_cb = cb;
         this->client->register_event_callback(event_id, std::bind(&ExampleServiceStub::handle_example_event1, this, std::placeholders::_1, std::placeholders::_2));
-        this->client->subscribe(event_id, info.Name, "example_event1", err);
+        this->client->subscribe(event_id, Info.name, "example_event1", err);
     }
 
     void ExampleServiceStub::unsubscribe_example_event1(lib::error err) {
         uint32 event_id = 1 + this->rpc_offset;
-        this->client->unsubscribe(event_id, info.Name, "example_event1", err);
+        this->client->unsubscribe(event_id, Info.name, "example_event1", err);
         if (err) {
             return;
         }
@@ -97,12 +97,12 @@ namespace examplepb {
         uint32 event_id = 2 + this->rpc_offset;
         this->example_event2_cb = cb;
         this->client->register_event_callback(event_id, std::bind(&ExampleServiceStub::handle_example_event2, this, std::placeholders::_1, std::placeholders::_2));
-        this->client->subscribe(event_id, info.Name, "example_event2", err);
+        this->client->subscribe(event_id, Info.name, "example_event2", err);
     }
 
     void ExampleServiceStub::unsubscribe_example_event2(lib::error err) {
         uint32 event_id = 2 + this->rpc_offset;
-        this->client->unsubscribe(event_id, info.Name, "example_event2", err);
+        this->client->unsubscribe(event_id, Info.name, "example_event2", err);
         if (err) {
             return;
         }
@@ -124,12 +124,12 @@ namespace examplepb {
         uint32 event_id = 3 + this->rpc_offset;
         this->example_event3_cb = cb;
         this->client->register_event_callback(event_id, std::bind(&ExampleServiceStub::handle_example_event3, this, std::placeholders::_1, std::placeholders::_2));
-        this->client->subscribe(event_id, info.Name, "example_event3", req, err);
+        this->client->subscribe(event_id, Info.name, "example_event3", req, err);
     }
 
     void ExampleServiceStub::unsubscribe_example_event3(lib::error err) {
         uint32 event_id = 3 + this->rpc_offset;
-        this->client->unsubscribe(event_id, info.Name, "example_event3", err);
+        this->client->unsubscribe(event_id, Info.name, "example_event3", err);
         if (err) {
             return;
         }

@@ -71,6 +71,7 @@ namespace serialrpc {
             str service_name;
             str procedure_name;
             void (*unmarshal)(CallData*, io::Reader &in, error err) = nil;
+            void (*unmarshal_raw)(void*, io::Reader &in, error err) = nil;
         } ;
 
         enum State {
@@ -95,6 +96,15 @@ namespace serialrpc {
         CallData *tail = nil;
 
       public:
+        void call_raw(
+            uint32 rpc_id,
+            str service_name,
+            str procedure_name,
+            io::WriterTo const *request,
+            void *response,
+            void (*unmarshal_response)(void*, io::Reader&, error),
+            error err);
+
         template <typename Req, typename Resp>
         Resp call(uint32 rpc_id, str service_name, str procedure_name, Req const &req, error err) {
             Client &c = *this;

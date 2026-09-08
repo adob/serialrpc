@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package serialrpc_test.imported;
+
+message Shared {
+  int32 value = 1;
+}
+
+enum Mode {
+  ModeUnknown = 0;
+  ModeOn = 1;
+}

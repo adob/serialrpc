@@ -70,43 +70,53 @@ namespace application
 {
     namespace
     {
+        std::string QualifiedNamespace(
+            const google::protobuf::FileDescriptor& file)
+        {
+            std::string result = "::";
+            std::vector<std::string> packageParts =
+                absl::StrSplit(file.package(), ".");
+            if (!packageParts.empty()) {
+                packageParts.back() += "pb";
+                for (auto const& part : packageParts)
+                    result += part + "::";
+            }
+            return result;
+        }
+
         std::string QualifiedName(const google::protobuf::Descriptor& descriptor)
         {
-            std::string namespaceString;
-
-            namespaceString = std::string(descriptor.file()->package()) + "pb::";
-            for (auto containingType = descriptor.containing_type(); containingType != nullptr; containingType = containingType->containing_type())
-                namespaceString += std::string(containingType->name()) + "::";
+            std::string namespaceString = QualifiedNamespace(*descriptor.file());
+            std::vector<std::string_view> containingTypes;
+            for (auto containingType = descriptor.containing_type();
+                 containingType != nullptr;
+                 containingType = containingType->containing_type())
+                containingTypes.push_back(containingType->name());
+            for (auto i = containingTypes.rbegin();
+                 i != containingTypes.rend(); ++i)
+                namespaceString += std::string(*i) + "::";
 
             return namespaceString + std::string(descriptor.name());
         }
 
         std::string QualifiedName(const google::protobuf::EnumDescriptor& descriptor)
         {
-            std::string namespaceString;
-
-            namespaceString = std::string(descriptor.file()->package()) + "pb::";
-            for (auto containingType = descriptor.containing_type(); containingType != nullptr; containingType = containingType->containing_type())
-                namespaceString += std::string(containingType->name()) + "pb::";
+            std::string namespaceString = QualifiedNamespace(*descriptor.file());
+            std::vector<std::string_view> containingTypes;
+            for (auto containingType = descriptor.containing_type();
+                 containingType != nullptr;
+                 containingType = containingType->containing_type())
+                containingTypes.push_back(containingType->name());
+            for (auto i = containingTypes.rbegin();
+                 i != containingTypes.rend(); ++i)
+                namespaceString += std::string(*i) + "::";
 
             return namespaceString + std::string(descriptor.name());
         }
 
         std::string QualifiedDetailName(const google::protobuf::EnumDescriptor& descriptor)
         {
-            std::string namespaceString;
-
-            // namespaceString = std::string(descriptor.file()->package()) + "pb::";
-
-            // if (descriptor.containing_type() != nullptr)
-            // {
-            //     // namespaceString += "detail::";
-
-            //     for (auto containingType = descriptor.containing_type(); containingType != nullptr; containingType = containingType->containing_type())
-            //         namespaceString += containingType->name();
-            // }
-
-            return namespaceString + std::string(descriptor.name());
+            return std::string(descriptor.name());
         }
 
         std::string QualifiedReferenceName(const google::protobuf::Descriptor& descriptor)
@@ -123,17 +133,12 @@ namespace application
         std::string QualifiedDetailName(const google::protobuf::Descriptor& descriptor)
         {
             std::string namespaceString;
-
-            //namespaceString = std::string(descriptor.file()->package()) + "pb::";
-
-            if (descriptor.containing_type() != nullptr)
-            {
-                // namespaceString += "detail::";
-
-                for (auto containingType = descriptor.containing_type(); containingType != nullptr; containingType = containingType->containing_type())
+            if (descriptor.containing_type() != nullptr) {
+                for (auto containingType = descriptor.containing_type();
+                     containingType != nullptr;
+                     containingType = containingType->containing_type())
                     namespaceString += containingType->name();
             }
-
             return namespaceString + std::string(descriptor.name());
         }
 
@@ -644,6 +649,9 @@ namespace application
         : EchoField(descriptor)
         , message(root.GetMessage(*descriptor.message_type()))
         , descriptor(descriptor)
+        , typeName(descriptor.file() == descriptor.message_type()->file()
+              ? message->qualifiedDetailName
+              : message->qualifiedName)
     {
         protoType = "services::ProtoMessage<" + message->qualifiedDetailName + ">";
         protoReferenceType = "services::ProtoMessage<" + message->qualifiedDetailReferenceName + ">";
@@ -701,6 +709,9 @@ namespace application
     EchoFieldEnum::EchoFieldEnum(const google::protobuf::FieldDescriptor& descriptor, EchoRoot& root)
         : EchoField(descriptor)
         , type(root.GetEnum(*descriptor.enum_type()))
+        , typeName(descriptor.file() == descriptor.enum_type()->file()
+              ? type->qualifiedDetailName
+              : type->qualifiedTypeName)
     {
         protoReferenceType = protoType = "services::ProtoEnum<" + type->qualifiedDetailName + ">";
     }
@@ -790,17 +801,25 @@ namespace application
     }
 
     EchoMethod::EchoMethod(const google::protobuf::MethodDescriptor& descriptor, EchoRoot& root)
-        : name(descriptor.name())
+        : descriptor(&descriptor)
+        , name(descriptor.name())
         , methodId(descriptor.options().GetExtension(method_id))
     {
         if (methodId == 0)
             throw UnspecifiedMethodId{ "", name };
 
-        if (descriptor.input_type()->full_name() != void_::descriptor()->full_name())
+        if (descriptor.input_type()->full_name() != void_::descriptor()->full_name()) {
             parameter = root.GetMessage(*descriptor.input_type());
+            parameterTypeName = descriptor.file() == descriptor.input_type()->file()
+                ? parameter->qualifiedDetailName
+                : parameter->qualifiedName;
+        }
 
         if (descriptor.output_type()->full_name() != void_::descriptor()->full_name()) {
             result = root.GetMessage(*descriptor.output_type());
+            resultTypeName = descriptor.file() == descriptor.output_type()->file()
+                ? result->qualifiedDetailName
+                : result->qualifiedName;
         }
 
         this->server_streaming = descriptor.server_streaming();

@@ -2,7 +2,13 @@
 
 #include <cstring>
 
+#include "lib/array.h"
 #include "lib/error.h"
+#include "lib/fmt/fmt.h"
+#include "lib/inline_string.h"
+#include "lib/io/io.h"
+#include "lib/panic.h"
+#include "lib/types.h"
 #include "lib/varint/varint.h"
 #include "lib/serial/serial_listener.h"
 
@@ -29,71 +35,171 @@ void serialrpc::send_code(serial::Conn &conn, ServerMessageType code, error err)
     conn.flush(err);
 }
 
+namespace {
+    uint32 type_id(ServiceDescription const& service, TypeInfo const* type) {
+        for (size i = 0; i < len(service.types); ++i) {
+            if (service.types[i] == type) {
+                return uint32(i + 1);
+            }
+        }
+        return 0;
+    }
+
+    struct DiscoveredMethod {
+        ServiceDescription const& service;
+        MethodInfo const& method;
+        bool full;
+
+        static void marshal(DiscoveredMethod const& value, io::Writer &out,
+                            error err, int nesting, Stack &stack) {
+            marshal_field(out, serialrpcpb::MethodInfo::NameFieldNumber,
+                          value.method.name, err, nesting - 1, stack);
+            marshal_field(out, serialrpcpb::MethodInfo::IdFieldNumber,
+                          value.method.id, err, nesting - 1, stack);
+            if (!value.full || err) {
+                return;
+            }
+            marshal_field(out, serialrpcpb::MethodInfo::RequestTypeFieldNumber,
+                          type_id(value.service, value.method.requestType),
+                          err, nesting - 1, stack);
+            marshal_field(out, serialrpcpb::MethodInfo::ResponseTypeFieldNumber,
+                          type_id(value.service, value.method.responseType),
+                          err, nesting - 1, stack);
+            marshal_field(out,
+                          serialrpcpb::MethodInfo::ClientStreamingFieldNumber,
+                          value.method.clientStreaming, err, nesting - 1, stack);
+            marshal_field(out,
+                          serialrpcpb::MethodInfo::ServerStreamingFieldNumber,
+                          value.method.serverStreaming, err, nesting - 1, stack);
+        }
+    };
+
+    struct DiscoveredField {
+        ServiceDescription const& service;
+        FieldInfo const& field;
+
+        static void marshal(DiscoveredField const& value, io::Writer &out,
+                            error err, int nesting, Stack &stack) {
+            marshal_field(out, serialrpcpb::FieldInfo::NameFieldNumber,
+                          value.field.name, err, nesting - 1, stack);
+            marshal_field(out, serialrpcpb::FieldInfo::NumberFieldNumber,
+                          value.field.number, err, nesting - 1, stack);
+            marshal_field(out, serialrpcpb::FieldInfo::TypeFieldNumber,
+                          int32(value.field.type->kind), err, nesting - 1, stack);
+            if (value.field.type->kind == TypeKind::Message
+                || value.field.type->kind == TypeKind::Enum) {
+                marshal_field(out, serialrpcpb::FieldInfo::TypeIdFieldNumber,
+                              type_id(value.service, value.field.type), err,
+                              nesting - 1, stack);
+            }
+            marshal_field(out, serialrpcpb::FieldInfo::RepeatedFieldNumber,
+                          value.field.repeated, err, nesting - 1, stack);
+        }
+    };
+
+    struct DiscoveredType {
+        ServiceDescription const& service;
+        TypeInfo const& type;
+        uint32 id;
+
+        static void marshal(DiscoveredType const& value, io::Writer &out,
+                            error err, int nesting, Stack &stack) {
+            marshal_field(out, serialrpcpb::TypeInfo::IdFieldNumber,
+                          value.id, err, nesting - 1, stack);
+            marshal_field(out, serialrpcpb::TypeInfo::TypeFieldNumber,
+                          int32(value.type.kind), err, nesting - 1, stack);
+            marshal_field(out, serialrpcpb::TypeInfo::NameFieldNumber,
+                          value.type.name, err, nesting - 1, stack);
+            for (FieldInfo const& field : value.type.fields) {
+                marshal_field(out, serialrpcpb::TypeInfo::FieldsFieldNumber,
+                              DiscoveredField{value.service, field}, err,
+                              nesting - 1, stack);
+                if (err) {
+                    return;
+                }
+            }
+            for (EnumValueInfo const& enumValue : value.type.enumValues) {
+                serialrpcpb::EnumValueInfo discovered;
+                discovered.name = enumValue.name;
+                discovered.number = enumValue.number;
+                marshal_field(out,
+                              serialrpcpb::TypeInfo::EnumValuesFieldNumber,
+                              discovered, err, nesting - 1, stack);
+                if (err) {
+                    return;
+                }
+            }
+        }
+    };
+}
+
 void DiscoveryServiceImpl::dispatch_ListServices(void *service, serial::Conn &conn, int /*rpc_id*/, error err) {
-    (void) unmarshal<serialrpcpb::ListServicesRequest>(conn, err);
+    auto request = unmarshal<serialrpcpb::ListServicesRequest>(conn, err);
     if (err) {
         return;
     }
 
     struct ServiceInfoView {
         ServiceDescription const& service;
+        bool full;
 
         // Marshal directly from static service metadata. Building the generated
         // ServiceInfo value here would allocate its repeated methods vector.
         static void marshal(ServiceInfoView const& value, io::Writer &out,
                             error err, int nesting, Stack &stack) {
-            auto const& service = value.service.Info;
+            auto const& service = value.service.info;
             constexpr size MaxFullNameSize = 128;
-            char full_name[MaxFullNameSize];
-            size full_name_size = service.Name.size();
+            lib::InlineString<MaxFullNameSize> full_name;
 
-            if (!service.Package.empty()) {
-                full_name_size += service.Package.size() + 1;
+            if (service.package) {
+                full_name += service.package;
+                full_name += ".";
             }
-            if (full_name_size > MaxFullNameSize) {
-                err("serialrpc: fully qualified service name is too long");
-                return;
-            }
-
-            size offset = 0;
-            if (!service.Package.empty()) {
-                memcpy(full_name, service.Package.data(), service.Package.size());
-                offset = service.Package.size();
-                full_name[offset++] = '.';
-            }
-            memcpy(full_name + offset, service.Name.data(), service.Name.size());
+            full_name += service.name;
 
             marshal_field(out, serialrpcpb::ServiceInfo::NameFieldNumber,
-                          str(full_name, full_name_size), err, nesting - 1, stack);
+                          full_name, err, nesting - 1, stack);
             if (err) {
                 return;
             }
             marshal_field(out, serialrpcpb::ServiceInfo::UuidFieldNumber,
-                          str(service.UUID), err, nesting - 1, stack);
+                          str(service.uuid), err, nesting - 1, stack);
             if (err) {
                 return;
             }
             marshal_field(out,
                           serialrpcpb::ServiceInfo::MajorVersionFieldNumber,
-                          int32(service.MajorVersion), err, nesting - 1, stack);
+                          service.major_version, err, nesting - 1, stack);
             if (err) {
                 return;
             }
             marshal_field(out,
                           serialrpcpb::ServiceInfo::MinorVersionFieldNumber,
-                          int32(service.MinorVersion), err, nesting - 1, stack);
+                          service.minor_version, err, nesting - 1, stack);
             if (err) {
                 return;
             }
 
-            for (MethodInfo const& method : value.service.Methods) {
-                serialrpcpb::MethodInfo method_info;
-                method_info.name = str::from_c_str(method.name);
-                method_info.id = method.id;
-                marshal_field(out, serialrpcpb::ServiceInfo::MethodsFieldNumber,
-                              method_info, err, nesting - 1, stack);
+            for (MethodInfo const& method : value.service.methods) {
+                marshal_field(out,
+                              serialrpcpb::ServiceInfo::MethodsFieldNumber,
+                              DiscoveredMethod{value.service, method, value.full},
+                              err, nesting - 1, stack);
                 if (err) {
                     return;
+                }
+            }
+
+            if (value.full) {
+                for (size i = 0; i < len(value.service.types); ++i) {
+                    marshal_field(out,
+                                  serialrpcpb::ServiceInfo::TypesFieldNumber,
+                                  DiscoveredType{value.service,
+                                      *value.service.types[i], uint32(i + 1)},
+                                  err, nesting - 1, stack);
+                    if (err) {
+                        return;
+                    }
                 }
             }
         }
@@ -112,7 +218,8 @@ void DiscoveryServiceImpl::dispatch_ListServices(void *service, serial::Conn &co
     for (ServiceDescription const& description : discovery.services) {
         marshal_field(conn,
                       serialrpcpb::ListServicesResponse::ServicesFieldNumber,
-                      ServiceInfoView{description}, err, MaxNesting, stack);
+                      ServiceInfoView{description, request.full}, err,
+                      MaxNesting, stack);
         if (err) {
             return;
         }

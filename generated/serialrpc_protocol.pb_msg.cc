@@ -123,12 +123,229 @@ namespace serialrpcpb {
             && services == other.services;
     }
 
+    void FieldInfo::marshal(FieldInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.NameFieldNumber, req.name, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.NumberFieldNumber, req.number, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.TypeFieldNumber, int32(req.type), err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.TypeIdFieldNumber, req.type_id, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.RepeatedFieldNumber, req.repeated, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    FieldInfo FieldInfo::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        FieldInfo msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            case NameFieldNumber:
+                msg.name = serialrpc::unmarshal<lib::InlineString<64>>(in, err, nesting-1);
+                break;
+
+            case NumberFieldNumber:
+                msg.number = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
+                break;
+
+            case TypeFieldNumber:
+                msg.type = (FieldType) serialrpc::unmarshal<int32>(in, err, nesting-1);
+                break;
+
+            case TypeIdFieldNumber:
+                msg.type_id = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
+                break;
+
+            case RepeatedFieldNumber:
+                msg.repeated = serialrpc::unmarshal<bool>(in, err, nesting-1);
+                break;
+
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool FieldInfo::operator==(const FieldInfo& other) const {
+        return name == other.name
+            && number == other.number
+            && type == other.type
+            && type_id == other.type_id
+            && repeated == other.repeated;
+    }
+
+    void EnumValueInfo::marshal(EnumValueInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.NameFieldNumber, req.name, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.NumberFieldNumber, req.number, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    EnumValueInfo EnumValueInfo::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        EnumValueInfo msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            case NameFieldNumber:
+                msg.name = serialrpc::unmarshal<lib::InlineString<64>>(in, err, nesting-1);
+                break;
+
+            case NumberFieldNumber:
+                msg.number = serialrpc::unmarshal<int32_t>(in, err, nesting-1);
+                break;
+
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool EnumValueInfo::operator==(const EnumValueInfo& other) const {
+        return name == other.name
+            && number == other.number;
+    }
+
+    void TypeInfo::marshal(TypeInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.IdFieldNumber, req.id, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.TypeFieldNumber, int32(req.type), err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.NameFieldNumber, req.name, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.FieldsFieldNumber, req.fields, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.EnumValuesFieldNumber, req.enum_values, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    TypeInfo TypeInfo::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        TypeInfo msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            case IdFieldNumber:
+                msg.id = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
+                break;
+
+            case TypeFieldNumber:
+                msg.type = (FieldType) serialrpc::unmarshal<int32>(in, err, nesting-1);
+                break;
+
+            case NameFieldNumber:
+                msg.name = serialrpc::unmarshal<lib::InlineString<128>>(in, err, nesting-1);
+                break;
+
+            case FieldsFieldNumber:
+                msg.fields.push_back(serialrpc::unmarshal<FieldInfo>(in, err, nesting-1));
+                break;
+
+            case EnumValuesFieldNumber:
+                msg.enum_values.push_back(serialrpc::unmarshal<EnumValueInfo>(in, err, nesting-1));
+                break;
+
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool TypeInfo::operator==(const TypeInfo& other) const {
+        return id == other.id
+            && type == other.type
+            && name == other.name
+            && fields == other.fields
+            && enum_values == other.enum_values;
+    }
+
     void MethodInfo::marshal(MethodInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
         serialrpc::marshal_field(out, req.NameFieldNumber, req.name, err, nesting-1, stack);
         if (err) {
             return;
         }
         serialrpc::marshal_field(out, req.IdFieldNumber, req.id, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.RequestTypeFieldNumber, req.request_type, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.ResponseTypeFieldNumber, req.response_type, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.ClientStreamingFieldNumber, req.client_streaming, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.ServerStreamingFieldNumber, req.server_streaming, err, nesting-1, stack);
         if (err) {
             return;
         }
@@ -156,6 +373,22 @@ namespace serialrpcpb {
                 msg.id = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
                 break;
 
+            case RequestTypeFieldNumber:
+                msg.request_type = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
+                break;
+
+            case ResponseTypeFieldNumber:
+                msg.response_type = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
+                break;
+
+            case ClientStreamingFieldNumber:
+                msg.client_streaming = serialrpc::unmarshal<bool>(in, err, nesting-1);
+                break;
+
+            case ServerStreamingFieldNumber:
+                msg.server_streaming = serialrpc::unmarshal<bool>(in, err, nesting-1);
+                break;
+
             default:
                 serialrpc::skip(in, tag.type, err, nesting-1);
                 if (err) {
@@ -169,7 +402,11 @@ namespace serialrpcpb {
 
     bool MethodInfo::operator==(const MethodInfo& other) const {
         return name == other.name
-            && id == other.id;
+            && id == other.id
+            && request_type == other.request_type
+            && response_type == other.response_type
+            && client_streaming == other.client_streaming
+            && server_streaming == other.server_streaming;
     }
 
     void ServiceInfo::marshal(ServiceInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
@@ -190,6 +427,10 @@ namespace serialrpcpb {
             return;
         }
         serialrpc::marshal_field(out, req.MethodsFieldNumber, req.methods, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.TypesFieldNumber, req.types, err, nesting-1, stack);
         if (err) {
             return;
         }
@@ -229,6 +470,10 @@ namespace serialrpcpb {
                 msg.methods.push_back(serialrpc::unmarshal<MethodInfo>(in, err, nesting-1));
                 break;
 
+            case TypesFieldNumber:
+                msg.types.push_back(serialrpc::unmarshal<TypeInfo>(in, err, nesting-1));
+                break;
+
             default:
                 serialrpc::skip(in, tag.type, err, nesting-1);
                 if (err) {
@@ -245,15 +490,15 @@ namespace serialrpcpb {
             && uuid == other.uuid
             && major_version == other.major_version
             && minor_version == other.minor_version
-            && methods == other.methods;
+            && methods == other.methods
+            && types == other.types;
     }
 
     void ListServicesRequest::marshal(ListServicesRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
-        (void) req;
-        (void) out;
-        (void) err;
-        (void) nesting;
-        (void) stack;
+        serialrpc::marshal_field(out, req.FullFieldNumber, req.full, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
     }
 
     ListServicesRequest ListServicesRequest::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
@@ -270,6 +515,10 @@ namespace serialrpcpb {
             }
 
             switch (tag.field_num) {
+            case FullFieldNumber:
+                msg.full = serialrpc::unmarshal<bool>(in, err, nesting-1);
+                break;
+
             default:
                 serialrpc::skip(in, tag.type, err, nesting-1);
                 if (err) {
@@ -282,8 +531,7 @@ namespace serialrpcpb {
     }
 
     bool ListServicesRequest::operator==(const ListServicesRequest& other) const {
-        (void) other;
-        return true;
+        return full == other.full;
     }
 
     void ListServicesResponse::marshal(ListServicesResponse const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {

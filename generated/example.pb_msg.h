@@ -15,6 +15,8 @@
 
 namespace examplepb {
     struct SumRequest {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(SumRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumRequest unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -31,6 +33,8 @@ namespace examplepb {
     };
 
     struct SumResponse {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(SumResponse const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumResponse unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -43,6 +47,8 @@ namespace examplepb {
     };
 
     struct SumEventsRequest {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(SumEventsRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumEventsRequest unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -55,6 +61,8 @@ namespace examplepb {
     };
 
     struct SumEvent {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(SumEvent const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static SumEvent unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -67,6 +75,8 @@ namespace examplepb {
     };
 
     struct Message2 {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(Message2 const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static Message2 unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -83,6 +93,8 @@ namespace examplepb {
     };
 
     struct ExampleEvent {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(ExampleEvent const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static ExampleEvent unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -91,6 +103,8 @@ namespace examplepb {
     };
 
     struct CANFrame {
+        static const serialrpc::TypeInfo Info;
+
         static void marshal(CANFrame const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
 
         static CANFrame unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
@@ -106,9 +120,77 @@ namespace examplepb {
         static const uint32_t DataFieldNumber = 2;
     };
 
+    inline const serialrpc::TypeInfo SumRequest::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "example.SumRequest",
+    .fields = {
+        {"left", 1, &serialrpc::TypeInt32, false},
+        {"right", 2, &serialrpc::TypeInt32, false},
+    },
+};
+inline const serialrpc::TypeInfo SumResponse::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "example.SumResponse",
+    .fields = {
+        {"answer", 1, &serialrpc::TypeInt32, false},
+    },
+};
+inline const serialrpc::TypeInfo SumEventsRequest::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "example.SumEventsRequest",
+    .fields = {
+        {"v", 1, &serialrpc::TypeInt32, false},
+    },
+};
+inline const serialrpc::TypeInfo SumEvent::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "example.SumEvent",
+    .fields = {
+        {"event", 1, &serialrpc::TypeInt32, false},
+    },
+};
+inline const serialrpc::TypeInfo Message2::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "example.Message2",
+    .fields = {
+        {"sum_request", 1, &::examplepb::SumRequest::Info, false},
+        {"data", 2, &serialrpc::TypeBytes, false},
+    },
+};
+inline const serialrpc::TypeInfo ExampleEvent::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "example.ExampleEvent",
+    .fields = {
+    },
+};
+inline const serialrpc::TypeInfo CANFrame::Info = {
+    .kind = serialrpc::TypeKind::Message,
+    .name = "example.CANFrame",
+    .fields = {
+        {"frame_id", 1, &serialrpc::TypeUint32, false},
+        {"data", 2, &serialrpc::TypeBytes, false},
+    },
+};
+namespace detail {
+    inline constexpr std::array<serialrpc::TypeInfo const*, 4> example_2eproto_SumService_types = {{
+        &::examplepb::SumRequest::Info,
+        &::examplepb::SumResponse::Info,
+        &::examplepb::SumEventsRequest::Info,
+        &::examplepb::SumEvent::Info,
+    }};
+    inline constexpr std::array<serialrpc::TypeInfo const*, 2> example_2eproto_CANService_types = {{
+        &::examplepb::CANFrame::Info,
+        &serialrpc::TypeVoid,
+    }};
+    inline constexpr std::array<serialrpc::TypeInfo const*, 2> example_2eproto_ExampleService_types = {{
+        &serialrpc::TypeVoid,
+        &::examplepb::ExampleEvent::Info,
+    }};
+}
+
     struct SumService {
         // uuid: 4f90fb19-7b58-4755-bb1f-3c81dc0a6d4d
-        static constexpr serialrpc::ServiceInfo info = {
+        static constexpr serialrpc::ServiceInfo Info = {
             "SumService",
             "example",
             {0x4f, 0x90, 0xfb, 0x19, 0x7b, 0x58, 0x47, 0x55, 0xbb, 0x1f, 0x3c, 0x81, 0xdc, 0x0a, 0x6d, 0x4d},
@@ -118,9 +200,11 @@ namespace examplepb {
         };
 
         static constexpr std::array<serialrpc::MethodInfo, 2> Methods = {{
-            {"sum", 1},
-            {"sum_events", 2},
+            {"sum", 1, &::examplepb::SumRequest::Info, &::examplepb::SumResponse::Info, false, false},
+            {"sum_events", 2, &::examplepb::SumEventsRequest::Info, &::examplepb::SumEvent::Info, false, true},
         }};
+
+        static constexpr auto const& Types = detail::example_2eproto_SumService_types;
 
         virtual SumResponse sum(SumRequest const &req, lib::error err) = 0;
 
@@ -131,7 +215,7 @@ namespace examplepb {
 
     struct CANService {
         // uuid: 9ef75f02-0a49-49b8-b4b6-7bfb8ad046d9
-        static constexpr serialrpc::ServiceInfo info = {
+        static constexpr serialrpc::ServiceInfo Info = {
             "CANService",
             "example",
             {0x9e, 0xf7, 0x5f, 0x02, 0x0a, 0x49, 0x49, 0xb8, 0xb4, 0xb6, 0x7b, 0xfb, 0x8a, 0xd0, 0x46, 0xd9},
@@ -141,15 +225,17 @@ namespace examplepb {
         };
 
         static constexpr std::array<serialrpc::MethodInfo, 1> Methods = {{
-            {"send", 1},
+            {"send", 1, &::examplepb::CANFrame::Info, &serialrpc::TypeVoid, false, false},
         }};
+
+        static constexpr auto const& Types = detail::example_2eproto_CANService_types;
 
         virtual void send(CANFrame const &req, lib::error err) = 0;
     };
 
     struct ExampleService {
         // uuid: a569fb0d-8929-4475-bd83-3dd372078657
-        static constexpr serialrpc::ServiceInfo info = {
+        static constexpr serialrpc::ServiceInfo Info = {
             "ExampleService",
             "example",
             {0xa5, 0x69, 0xfb, 0x0d, 0x89, 0x29, 0x44, 0x75, 0xbd, 0x83, 0x3d, 0xd3, 0x72, 0x07, 0x86, 0x57},
@@ -159,11 +245,13 @@ namespace examplepb {
         };
 
         static constexpr std::array<serialrpc::MethodInfo, 4> Methods = {{
-            {"say_hello", 1},
-            {"example_event1", 2},
-            {"example_event2", 3},
-            {"example_event3", 4},
+            {"say_hello", 1, &serialrpc::TypeVoid, &serialrpc::TypeVoid, false, false},
+            {"example_event1", 2, &serialrpc::TypeVoid, &serialrpc::TypeVoid, false, true},
+            {"example_event2", 3, &serialrpc::TypeVoid, &::examplepb::ExampleEvent::Info, false, true},
+            {"example_event3", 4, &::examplepb::ExampleEvent::Info, &serialrpc::TypeVoid, false, true},
         }};
+
+        static constexpr auto const& Types = detail::example_2eproto_ExampleService_types;
 
         virtual void say_hello(lib::error err) = 0;
 
