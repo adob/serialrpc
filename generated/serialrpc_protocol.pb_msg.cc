@@ -104,7 +104,7 @@ namespace serialrpcpb {
                 break;
 
             case ServicesFieldNumber:
-                msg.services = serialrpc::unmarshal<std::vector<ServiceDef>>(in, err, nesting-1);
+                msg.services.push_back(serialrpc::unmarshal<ServiceDef>(in, err, nesting-1));
                 break;
 
             default:
@@ -122,4 +122,208 @@ namespace serialrpcpb {
         return protocol_version == other.protocol_version
             && services == other.services;
     }
+
+    void MethodInfo::marshal(MethodInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.NameFieldNumber, req.name, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.IdFieldNumber, req.id, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    MethodInfo MethodInfo::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        MethodInfo msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            case NameFieldNumber:
+                msg.name = serialrpc::unmarshal<lib::InlineString<64>>(in, err, nesting-1);
+                break;
+
+            case IdFieldNumber:
+                msg.id = serialrpc::unmarshal<uint32_t>(in, err, nesting-1);
+                break;
+
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool MethodInfo::operator==(const MethodInfo& other) const {
+        return name == other.name
+            && id == other.id;
+    }
+
+    void ServiceInfo::marshal(ServiceInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.NameFieldNumber, req.name, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.UuidFieldNumber, req.uuid, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.MajorVersionFieldNumber, req.major_version, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.MinorVersionFieldNumber, req.minor_version, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+        serialrpc::marshal_field(out, req.MethodsFieldNumber, req.methods, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    ServiceInfo ServiceInfo::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        ServiceInfo msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            case NameFieldNumber:
+                msg.name = serialrpc::unmarshal<lib::InlineString<128>>(in, err, nesting-1);
+                break;
+
+            case UuidFieldNumber:
+                msg.uuid = serialrpc::unmarshal<lib::InlineString<16>>(in, err, nesting-1);
+                break;
+
+            case MajorVersionFieldNumber:
+                msg.major_version = serialrpc::unmarshal<int32_t>(in, err, nesting-1);
+                break;
+
+            case MinorVersionFieldNumber:
+                msg.minor_version = serialrpc::unmarshal<int32_t>(in, err, nesting-1);
+                break;
+
+            case MethodsFieldNumber:
+                msg.methods.push_back(serialrpc::unmarshal<MethodInfo>(in, err, nesting-1));
+                break;
+
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool ServiceInfo::operator==(const ServiceInfo& other) const {
+        return name == other.name
+            && uuid == other.uuid
+            && major_version == other.major_version
+            && minor_version == other.minor_version
+            && methods == other.methods;
+    }
+
+    void ListServicesRequest::marshal(ListServicesRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        (void) req;
+        (void) out;
+        (void) err;
+        (void) nesting;
+        (void) stack;
+    }
+
+    ListServicesRequest ListServicesRequest::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        ListServicesRequest msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool ListServicesRequest::operator==(const ListServicesRequest& other) const {
+        (void) other;
+        return true;
+    }
+
+    void ListServicesResponse::marshal(ListServicesResponse const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack) {
+        serialrpc::marshal_field(out, req.ServicesFieldNumber, req.services, err, nesting-1, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    ListServicesResponse ListServicesResponse::unmarshal(lib::io::Reader &in, lib::error err, int nesting) {
+        ListServicesResponse msg;
+
+        for (;;) {
+            serialrpc::Tag tag = serialrpc::read_tag(in, err);
+            if (err) {
+                return msg;
+            }
+
+            if (tag.type == serialrpc::Tag::End) {
+                return msg;
+            }
+
+            switch (tag.field_num) {
+            case ServicesFieldNumber:
+                msg.services.push_back(serialrpc::unmarshal<ServiceInfo>(in, err, nesting-1));
+                break;
+
+            default:
+                serialrpc::skip(in, tag.type, err, nesting-1);
+                if (err) {
+                    return msg;
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    bool ListServicesResponse::operator==(const ListServicesResponse& other) const {
+        return services == other.services;
+    }
+
 }

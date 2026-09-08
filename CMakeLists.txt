@@ -80,6 +80,7 @@ target_link_libraries(${PROJECT_NAME}_server PUBLIC baselib::baselib)
 add_library(${PROJECT_NAME}_client STATIC
   client.cc
   internal.cc
+  generated/serialrpc_protocol.pb_client.cc
 )
 add_library(${PROJECT_NAME}::client ALIAS ${PROJECT_NAME}_client)
 target_compile_features(${PROJECT_NAME}_client PUBLIC cxx_std_23)
@@ -176,4 +177,22 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
 
   add_test(NAME ${PROJECT_NAME}_tests COMMAND ${PROJECT_NAME}_tests)
   set_tests_properties(${PROJECT_NAME}_tests PROPERTIES TIMEOUT 30)
+
+  set(_duplicate_method_id_output_dir
+    ${CMAKE_CURRENT_BINARY_DIR}/duplicate_method_id_output
+  )
+  file(MAKE_DIRECTORY ${_duplicate_method_id_output_dir})
+  add_test(
+    NAME ${PROJECT_NAME}_rejects_duplicate_method_ids
+    COMMAND ${CMAKE_COMMAND}
+      -DPROTOC=${_protoc_exe}
+      -DPLUGIN=$<TARGET_FILE:serialrpcgen_plugin>
+      -DOUTPUT_DIR=${_duplicate_method_id_output_dir}
+      -DSERIALRPC_DIR=${CMAKE_CURRENT_LIST_DIR}
+      -DPROTOBUF_PROTO_DIR=${SERIALRPC_PROTOBUF_PROTO_DIR}
+      -P ${CMAKE_CURRENT_LIST_DIR}/cmake/verify_duplicate_method_id.cmake
+  )
+  set_tests_properties(${PROJECT_NAME}_rejects_duplicate_method_ids PROPERTIES
+    TIMEOUT 30
+  )
 endif()

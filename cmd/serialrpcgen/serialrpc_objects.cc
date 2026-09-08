@@ -821,8 +821,17 @@ namespace application
 
         try
         {
-            for (int i = 0; i != descriptor.method_count(); ++i)
+            for (int i = 0; i != descriptor.method_count(); ++i) {
                 methods.emplace_back(*descriptor.method(i), root);
+
+                EchoMethod const& method = methods.back();
+                for (auto previous = methods.begin(); previous != methods.end() - 1; ++previous) {
+                    if (previous->methodId == method.methodId) {
+                        throw DuplicateMethodId{
+                            name, previous->name, method.name, method.methodId};
+                    }
+                }
+            }
         }
         catch (UnspecifiedMethodId& exception)
         {

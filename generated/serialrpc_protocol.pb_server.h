@@ -11,3 +11,19 @@
 #include "lib/io/io.h"
 #include "serialrpc/server.h"
 #include "serialrpc_protocol.pb_msg.h"
+
+namespace serialrpcpb {
+    struct DiscoveryServiceBase : DiscoveryService {
+        lib::serial::Conn* event_conn = nullptr;
+
+        static void dispatch_ListServices(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
+
+        static constexpr std::array<serialrpc::DispatchFunc, 1> dispatch_table = {
+            dispatch_ListServices,
+        };
+
+        DiscoveryServiceBase* service_ptr();
+
+        void unsubscribe_all();
+    };
+}

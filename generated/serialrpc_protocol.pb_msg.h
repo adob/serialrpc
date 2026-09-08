@@ -11,6 +11,8 @@
 #include "lib/io/io.h"
 #include <vector>
 #include "serialrpc/encoding.h"
+#include "serialrpc/method_info.h"
+#include "serialrpc/service_info.h"
 
 namespace serialrpcpb {
     struct ServiceDef {
@@ -51,5 +53,87 @@ namespace serialrpcpb {
         static const uint32_t ProtocolVersionFieldNumber = 1;
 
         static const uint32_t ServicesFieldNumber = 2;
+    };
+
+    struct MethodInfo {
+        static void marshal(MethodInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static MethodInfo unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const MethodInfo& other) const;
+
+        lib::InlineString<64> name = {};
+
+        uint32_t id = {};
+
+        static const uint32_t NameFieldNumber = 1;
+
+        static const uint32_t IdFieldNumber = 2;
+    };
+
+    struct ServiceInfo {
+        static void marshal(ServiceInfo const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static ServiceInfo unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const ServiceInfo& other) const;
+
+        lib::InlineString<128> name = {};
+
+        lib::InlineString<16> uuid = {};
+
+        int32_t major_version = {};
+
+        int32_t minor_version = {};
+
+        std::vector<MethodInfo> methods = {};
+
+        static const uint32_t NameFieldNumber = 1;
+
+        static const uint32_t UuidFieldNumber = 2;
+
+        static const uint32_t MajorVersionFieldNumber = 3;
+
+        static const uint32_t MinorVersionFieldNumber = 4;
+
+        static const uint32_t MethodsFieldNumber = 5;
+    };
+
+    struct ListServicesRequest {
+        static void marshal(ListServicesRequest const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static ListServicesRequest unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const ListServicesRequest& other) const;
+    };
+
+    struct ListServicesResponse {
+        static void marshal(ListServicesResponse const &req, lib::io::Writer &out, lib::error err, int nesting, serialrpc::Stack &stack);
+
+        static ListServicesResponse unmarshal(lib::io::Reader &in, lib::error err, int nesting = 128);
+
+        bool operator==(const ListServicesResponse& other) const;
+
+        std::vector<ServiceInfo> services = {};
+
+        static const uint32_t ServicesFieldNumber = 1;
+    };
+
+    struct DiscoveryService {
+        // uuid: b2fc7a75-0f8d-4147-a117-1556aee1c4c7
+        static constexpr serialrpc::ServiceInfo info = {
+            "DiscoveryService",
+            "serialrpc",
+            {0xb2, 0xfc, 0x7a, 0x75, 0x0f, 0x8d, 0x41, 0x47, 0xa1, 0x17, 0x15, 0x56, 0xae, 0xe1, 0xc4, 0xc7},
+            1,
+            0,
+            1,
+        };
+
+        static constexpr std::array<serialrpc::MethodInfo, 1> Methods = {{
+            {"ListServices", 1},
+        }};
+
+        virtual ListServicesResponse ListServices(ListServicesRequest const &req, lib::error err) = 0;
     };
 }

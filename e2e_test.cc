@@ -10,12 +10,43 @@
 #include "generated/example.pb_msg.h"
 #include "generated/example.pb_client.h"
 #include "generated/example.pb_server.h"
+#include "generated/serialrpc_protocol.pb_client.h"
 #include "generated/serialrpc_protocol.pb_msg.h"
 
 #include <memory>
+#include <string_view>
 
 using namespace lib;
 using namespace serialrpc;
+
+void test_generated_service_method_table(testing::T &t) {
+    auto const& service = examplepb::SumService::info;
+    if (std::string_view(service.Name) != std::string_view("SumService")
+        || std::string_view(service.Package) != std::string_view("example")
+        || service.UUID != std::array<uint8_t, 16>{
+            0x4f, 0x90, 0xfb, 0x19, 0x7b, 0x58, 0x47, 0x55,
+            0xbb, 0x1f, 0x3c, 0x81, 0xdc, 0x0a, 0x6d, 0x4d}
+        || service.MajorVersion != 0
+        || service.MinorVersion != 0
+        || service.NumEndpoints != 2) {
+        t.errorf("SumService generated incorrect service metadata");
+    }
+
+    auto const& methods = examplepb::SumService::Methods;
+
+    if (methods.size() != 2) {
+        t.errorf("SumService has %v methods; want 2", methods.size());
+        return;
+    }
+    if (std::string_view(methods[0].name) != std::string_view("sum") || methods[0].id != 1) {
+        t.errorf("SumService method 0 is {%q, %v}; want {sum, 1}",
+            methods[0].name, methods[0].id);
+    }
+    if (std::string_view(methods[1].name) != std::string_view("sum_events") || methods[1].id != 2) {
+        t.errorf("SumService method 1 is {%q, %v}; want {sum_events, 2}",
+            methods[1].name, methods[1].id);
+    }
+}
 
 struct PipeEnd : io::ReaderWriter {
     std::shared_ptr<io::Writer> w;
@@ -182,7 +213,8 @@ void test_bare_unknown_reply_fails_connection_and_wakes_call(testing::T &t) {
         write_tag(*server_side, serialrpcpb::ServerHello::ProtocolVersionFieldNumber, Tag::VarInt, error::panic);
         varint::write_uint32(*server_side, ProtocolVersion, error::panic);
 
-        serialrpcpb::ServiceDef service_def = to_service_def<examplepb::SumServiceBase>();
+        serialrpcpb::ServiceDef service_def =
+            to_service_def(examplepb::SumServiceBase::info);
         Stack stack;
         marshal_field(*server_side, serialrpcpb::ServerHello::ServicesFieldNumber, service_def, error::panic, MaxNesting, stack);
         server_side->write_byte(byte(Tag::End), error::panic);
@@ -375,6 +407,7 @@ void test_e2e(testing::T &t) {
     CANService can;
     ExampleService example;
     serialrpc::Server server(summer, can, example);
+    static_assert(decltype(server)::dispatch_table.size() == 8);
 
     sync::atomic<bool> stop = false;
 
@@ -391,10 +424,56 @@ void test_e2e(testing::T &t) {
     examplepb::SumServiceStub sum_stub;
     examplepb::CANServiceStub can_stub;
     examplepb::ExampleServiceStub example_stub;
-    std::shared_ptr<Client> client = serialrpc::connect(client_conn, "<test connection>", {&sum_stub, &can_stub, &example_stub}, error::panic);
+    serialrpcpb::DiscoveryServiceStub discovery_stub;
+    std::shared_ptr<Client> client = serialrpc::connect(
+        client_conn,
+        "<test connection>",
+        {&discovery_stub, &sum_stub, &can_stub, &example_stub},
+        error::panic);
     print "client connected";
 
     print "client started";
+
+    serialrpcpb::ListServicesResponse services =
+        discovery_stub.ListServices({}, error::panic);
+    if (services.services.size() != 4) {
+        t.errorf("discovery returned %v services; want 4", services.services.size());
+    } else {
+        std::array<std::string_view, 4> expected_names = {
+            "serialrpc.DiscoveryService",
+            "example.SumService",
+            "example.CANService",
+            "example.ExampleService",
+        };
+        for (size_t i = 0; i < expected_names.size(); ++i) {
+            auto const& service = services.services[i];
+            str service_name = service.name;
+            std::string_view name(service_name.data, service_name.len);
+            if (name != expected_names[i]) {
+                t.errorf("discovery service %v is %q; want %q",
+                    i, service_name, expected_names[i]);
+            }
+        }
+
+        auto const& sum_service = services.services[1];
+        if (sum_service.methods.size() != 2) {
+            t.errorf("discovery returned %v SumService methods; want 2",
+                sum_service.methods.size());
+        } else {
+            str first_method_name = sum_service.methods[0].name;
+            str second_method_name = sum_service.methods[1].name;
+            if (std::string_view(
+                first_method_name.data,
+                first_method_name.len) != std::string_view("sum")
+                || sum_service.methods[0].id != 1
+                || std::string_view(
+                second_method_name.data,
+                second_method_name.len) != std::string_view("sum_events")
+                || sum_service.methods[1].id != 2) {
+                t.errorf("discovery returned incorrect SumService method metadata");
+            }
+        }
+    }
 
     print "making request...";
     examplepb::SumResponse resp = sum_stub.sum(examplepb::SumRequest{.left = 10, .right = 20}, error::panic);;

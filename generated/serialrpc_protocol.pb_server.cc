@@ -5,3 +5,29 @@
 #include "serialrpc/encoding.h"
 
 using namespace lib;
+
+namespace serialrpcpb {
+    void DiscoveryServiceBase::dispatch_ListServices(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
+        ListServicesRequest msg = serialrpc::unmarshal<ListServicesRequest>(conn, err);
+        if (err) {
+            return;
+        }
+        serialrpc::ServerErrorHandler handler_err(conn, err);
+        ListServicesResponse resp = static_cast<DiscoveryServiceBase*>(service)->ListServices(msg, handler_err);
+        if (handler_err) {
+            return;
+        }
+        serialrpc::send_reply_msg(conn, resp, err);
+        if (err) {
+            return;
+        }
+    }
+
+    DiscoveryServiceBase* DiscoveryServiceBase::service_ptr() {
+        return this;
+    }
+
+    void DiscoveryServiceBase::unsubscribe_all() {
+        this->event_conn = nullptr;
+    }
+}

@@ -90,6 +90,25 @@ functions:
 examplepb::SumRequest req{.left = 10, .right = 20};
 ```
 
+Generated service structs expose a compile-time `Methods` table for discovery.
+Each entry contains the human-readable proto method name and its declared
+`method_id`:
+
+```cpp
+for (auto const& method : examplepb::SumService::Methods) {
+    use_method(method.name, method.id);
+}
+```
+
+They also expose a compile-time `info` member containing the service name,
+package, UUID, major and minor versions, and number of endpoints.
+
+Every `serialrpc::Server` automatically exposes
+`serialrpc.DiscoveryService`. A client can connect a generated
+`serialrpcpb::DiscoveryServiceStub` and call `ListServices` to retrieve the
+fully qualified name, UUID, version, and method table for every exposed
+service. The discovery service includes itself in the result.
+
 Client generation produces one stub per service. Pass the stubs to
 `serialrpc::connect`, then call RPC methods directly:
 

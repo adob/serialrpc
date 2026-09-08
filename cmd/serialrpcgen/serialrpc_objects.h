@@ -398,6 +398,14 @@ namespace application
         std::string method;
     };
 
+    struct DuplicateMethodId
+    {
+        std::string service;
+        std::string firstMethod;
+        std::string secondMethod;
+        uint32_t methodId;
+    };
+
     struct MessageNotFound
     {
         std::string name;

@@ -15,3 +15,38 @@ message ServerHello {
   uint32 protocol_version = 1;
   repeated ServiceDef services = 2;
 }
+
+// Describes an RPC method using its human-readable proto name and its
+// service-local method ID.
+message MethodInfo {
+  string name = 1 [(string_size) = 64];
+  uint32 id = 2;
+}
+
+// Describes one service implemented by the server. The name is the fully
+// qualified proto service name, matching gRPC reflection's naming convention.
+message ServiceInfo {
+  string name = 1 [(string_size) = 128];
+  bytes uuid = 2 [(bytes_size) = 16];
+  int32 major_version = 3;
+  int32 minor_version = 4;
+  repeated MethodInfo methods = 5;
+}
+
+message ListServicesRequest {}
+
+message ListServicesResponse {
+  repeated ServiceInfo services = 1;
+}
+
+// Provides a compact subset of gRPC server reflection suitable for serialrpc.
+// It exposes service and method metadata, but not protobuf file descriptors.
+service DiscoveryService {
+  option (uuid) = "b2fc7a75-0f8d-4147-a117-1556aee1c4c7";
+  option (major_version) = 1;
+  option (minor_version) = 0;
+
+  rpc ListServices(ListServicesRequest) returns (ListServicesResponse) {
+    option (method_id) = 1;
+  }
+}

@@ -1,5 +1,7 @@
 #include <sys/unistd.h>
 
+#include <cstring>
+
 #include "lib/error.h"
 #include "lib/varint/varint.h"
 #include "lib/serial/serial_listener.h"
@@ -24,6 +26,102 @@ void serialrpc::send_code(serial::Conn &conn, ServerMessageType code, error err)
         return;
     }
 
+    conn.flush(err);
+}
+
+void DiscoveryServiceImpl::dispatch_ListServices(void *service, serial::Conn &conn, int /*rpc_id*/, error err) {
+    (void) unmarshal<serialrpcpb::ListServicesRequest>(conn, err);
+    if (err) {
+        return;
+    }
+
+    struct ServiceInfoView {
+        ServiceDescription const& service;
+
+        // Marshal directly from static service metadata. Building the generated
+        // ServiceInfo value here would allocate its repeated methods vector.
+        static void marshal(ServiceInfoView const& value, io::Writer &out,
+                            error err, int nesting, Stack &stack) {
+            auto const& service = value.service.Info;
+            constexpr size MaxFullNameSize = 128;
+            char full_name[MaxFullNameSize];
+            size full_name_size = service.Name.size();
+
+            if (!service.Package.empty()) {
+                full_name_size += service.Package.size() + 1;
+            }
+            if (full_name_size > MaxFullNameSize) {
+                err("serialrpc: fully qualified service name is too long");
+                return;
+            }
+
+            size offset = 0;
+            if (!service.Package.empty()) {
+                memcpy(full_name, service.Package.data(), service.Package.size());
+                offset = service.Package.size();
+                full_name[offset++] = '.';
+            }
+            memcpy(full_name + offset, service.Name.data(), service.Name.size());
+
+            marshal_field(out, serialrpcpb::ServiceInfo::NameFieldNumber,
+                          str(full_name, full_name_size), err, nesting - 1, stack);
+            if (err) {
+                return;
+            }
+            marshal_field(out, serialrpcpb::ServiceInfo::UuidFieldNumber,
+                          str(service.UUID), err, nesting - 1, stack);
+            if (err) {
+                return;
+            }
+            marshal_field(out,
+                          serialrpcpb::ServiceInfo::MajorVersionFieldNumber,
+                          int32(service.MajorVersion), err, nesting - 1, stack);
+            if (err) {
+                return;
+            }
+            marshal_field(out,
+                          serialrpcpb::ServiceInfo::MinorVersionFieldNumber,
+                          int32(service.MinorVersion), err, nesting - 1, stack);
+            if (err) {
+                return;
+            }
+
+            for (MethodInfo const& method : value.service.Methods) {
+                serialrpcpb::MethodInfo method_info;
+                method_info.name = str::from_c_str(method.name);
+                method_info.id = method.id;
+                marshal_field(out, serialrpcpb::ServiceInfo::MethodsFieldNumber,
+                              method_info, err, nesting - 1, stack);
+                if (err) {
+                    return;
+                }
+            }
+        }
+    };
+
+    DiscoveryServiceImpl &discovery =
+        *static_cast<DiscoveryServiceImpl*>(service);
+    sync::Lock lock(conn.write_mtx);
+
+    start_reply(conn, err);
+    if (err) {
+        return;
+    }
+
+    Stack stack;
+    for (ServiceDescription const& description : discovery.services) {
+        marshal_field(conn,
+                      serialrpcpb::ListServicesResponse::ServicesFieldNumber,
+                      ServiceInfoView{description}, err, MaxNesting, stack);
+        if (err) {
+            return;
+        }
+    }
+
+    conn.write_byte(Tag::End, err);
+    if (err) {
+        return;
+    }
     conn.flush(err);
 }
 

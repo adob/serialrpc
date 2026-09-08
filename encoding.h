@@ -59,8 +59,12 @@ namespace serialrpc {
     void write_tag(io::Writer &out, int32 field_number, Tag::Type type, error err);
 
     template <typename T>
-    concept Marshallable = requires(T const& t, io::Writer &out, io::Reader &in, error err, int nesting, Stack &stack) {
+    concept Marshallable = requires(T const& t, io::Writer &out, error err, int nesting, Stack &stack) {
         { T::marshal(t, out, err, nesting, stack) };
+    };
+
+    template <typename T>
+    concept Unmarshallable = requires(io::Reader &in, error err, int nesting) {
         { T::unmarshal(in, err, nesting) };
     };
 
@@ -90,9 +94,14 @@ namespace serialrpc {
 
     void marshal_field(io::Writer &out, int32 field_numer, str s, error err, int nesting, Stack &stack);
 
-    template <typename T>
+    template <Marshallable T>
     void marshal_field(io::Writer &out, int32 field_number, std::vector<T> const &vec, error err, int nesting, Stack &stack) {
-        panic("not implemented");
+        for (auto const& value : vec) {
+            marshal_field(out, field_number, value, err, nesting, stack);
+            if (err) {
+                return;
+            }
+        }
     }
 
     template <typename T>
@@ -105,7 +114,7 @@ namespace serialrpc {
         out.write_byte(Tag::End, err);
     }
 
-    template <Marshallable T>
+    template <Unmarshallable T>
     T unmarshal(io::Reader &in, error err, int nesting = 128) {
         if (nesting < 0) {
             err("excessive nesting");
@@ -134,17 +143,9 @@ namespace serialrpc {
         return t;
     }
 
-    template<class T>
-    concept std_vector = requires { []<class X, class A>(std::vector<X, A> const&){}(std::declval<std::remove_cvref_t<T> const&>()); };
-
     template <typename T>
     T unmarshal(io::Reader &, error, int /*nesting*/ = 128) {
-        if constexpr (std_vector<T>) {
-            panic("unmarshal vector not implemented");
-            return {};
-        } else {
-            static_assert(false);
-        }
+        static_assert(sizeof(T) == 0, "unsupported serialrpc field type");
     }
 
     template <>

@@ -11,3 +11,11 @@
 #include "lib/io/io.h"
 #include "serialrpc/client.h"
 #include "serialrpc_protocol.pb_msg.h"
+
+namespace serialrpcpb {
+    struct DiscoveryServiceStub : DiscoveryService, serialrpc::Stub {
+        DiscoveryServiceStub();
+
+        ListServicesResponse ListServices(ListServicesRequest const &req, lib::error err) override;
+    };
+}

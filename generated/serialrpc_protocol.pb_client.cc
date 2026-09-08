@@ -5,3 +5,16 @@
 #include "serialrpc/encoding.h"
 
 using namespace lib;
+
+namespace serialrpcpb {
+    DiscoveryServiceStub::DiscoveryServiceStub() {
+        this->uuid = str(DiscoveryService::info.UUID);
+        this->major_version = DiscoveryService::info.MajorVersion;
+        this->minor_version = DiscoveryService::info.MinorVersion;
+        this->name = DiscoveryService::info.Name;
+    }
+
+    ListServicesResponse DiscoveryServiceStub::ListServices(ListServicesRequest const &req, lib::error err) {
+        return this->client->call<ListServicesRequest const&, ListServicesResponse>(0 + this->rpc_offset, info.Name, "ListServices", req, err);
+    }
+}

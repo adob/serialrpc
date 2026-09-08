@@ -702,6 +702,13 @@ namespace application
             *error = "Field " + exception.service + "." + exception.method + " needs a method_id specifying its id";
             return false;
         }
+        catch (DuplicateMethodId& exception)
+        {
+            *error = "Service " + exception.service + " methods " + exception.firstMethod
+                + " and " + exception.secondMethod + " use duplicate method_id "
+                + SimpleItoa(exception.methodId);
+            return false;
+        }
         catch (MessageNotFound& exception)
         {
             *error = "Message " + exception.name + " was used before having been fully defined";
@@ -1220,6 +1227,13 @@ namespace application
 
                 if (field->type == google::protobuf::FieldDescriptor::TYPE_ENUM) {
                     printer.Print("msg.$name$ = ($type$) serialrpc::unmarshal<int32>(in, err, nesting-1);\n", "name", field->name, "type", type);
+                } else if (auto repeated = std::dynamic_pointer_cast<EchoFieldUnboundedRepeated>(field)) {
+                    std::string element_type;
+                    StorageTypeVisitor element_visitor(element_type);
+                    repeated->type->Accept(element_visitor);
+                    printer.Print(
+                        "msg.$name$.push_back(serialrpc::unmarshal<$type$>(in, err, nesting-1));\n",
+                        "name", field->name, "type", element_type);
                 } else {
                     printer.Print("msg.$name$ = serialrpc::unmarshal<$type$>(in, err, nesting-1);\n", "name", field->name, "type", type);
                 }
@@ -1474,25 +1488,33 @@ namespace application
     void ServiceGenerator::GenerateServiceFunctions()
     {
         // auto functions = std::make_shared<Access>("public");
-        auto service_name = std::make_shared<DataMember>("ServiceName[]", "static constexpr char", "\"" + service->name + "\"");
-        serviceFormatter->Add(service_name);
-
         serviceFormatter->Add(std::make_shared<HeaderSnippet>(
             "// uuid: " + UuidString(service->uuid)));
-        serviceFormatter->Add(std::make_shared<DataMember>(
-            "UUID",
-            "static constexpr std::array<uint8_t, 16>",
-            ByteArrayInitializer(service->uuid)));
 
+        std::string info_initializer = "{\n";
+        info_initializer += "            \"" + service->name + "\",\n";
+        info_initializer += "            \""
+            + std::string(service->descriptor.file()->package()) + "\",\n";
+        info_initializer += "            " + ByteArrayInitializer(service->uuid) + ",\n";
+        info_initializer += "            " + SimpleItoa(service->majorVersion) + ",\n";
+        info_initializer += "            " + SimpleItoa(service->minorVersion) + ",\n";
+        info_initializer += "            " + SimpleItoa(service->methods.size()) + ",\n";
+        info_initializer += "        }";
         serviceFormatter->Add(std::make_shared<DataMember>(
-            "MajorVersion",
-            "static const int",
-            SimpleItoa(service->majorVersion)));
+            "info",
+            "static constexpr serialrpc::ServiceInfo",
+            info_initializer));
 
+        std::string methods_initializer = "{{\n";
+        for (auto const& method : service->methods) {
+            methods_initializer += "            {\"" + method.name + "\", "
+                + SimpleItoa(method.methodId) + "},\n";
+        }
+        methods_initializer += "        }}";
         serviceFormatter->Add(std::make_shared<DataMember>(
-            "MinorVersion",
-            "static const int",
-            SimpleItoa(service->minorVersion)));
+            "Methods",
+            "static constexpr std::array<serialrpc::MethodInfo, " + SimpleItoa(service->methods.size()) + ">",
+            methods_initializer));
 
         for (auto& method : service->methods)
         {
@@ -1926,6 +1948,10 @@ switch (methodId)
         }
         if (options.generate_shared) {
             includesByHeader->Path("serialrpc/encoding.h");
+            if (!root.GetFile(*file)->services.empty()) {
+                includesByHeader->Path("serialrpc/method_info.h");
+                includesByHeader->Path("serialrpc/service_info.h");
+            }
             includesBySource->Path(name + "_msg.h");
         }
         if (options.generate_server || options.generate_client) {
@@ -2600,15 +2626,13 @@ switch (methodId)
                 options.spaces_per_indent = 4;
                 google::protobuf::io::Printer printer(&stream, options);
 
-                printer.Print("this->uuid = str($T$::UUID);\n", "T", service.name);
-                printer.Print("this->major_version = $T$::MajorVersion;\n", "T", service.name);
-                printer.Print("this->minor_version = $T$::MinorVersion;\n", "T", service.name);
-                printer.Print("this->name = $T$::ServiceName;\n", "T", service.name);
+                printer.Print("this->uuid = str($T$::info.UUID);\n", "T", service.name);
+                printer.Print("this->major_version = $T$::info.MajorVersion;\n", "T", service.name);
+                printer.Print("this->minor_version = $T$::info.MinorVersion;\n", "T", service.name);
+                printer.Print("this->name = $T$::info.Name;\n", "T", service.name);
             }
             auto constructor = std::make_shared<Constructor>(service.name + "Stub", constructor_code.str(), 0);
             // constructor->Parameter("serialrpc::Client &client");
-            // constructor->Initializer("uuid(" + service.name + "::UUID)");
-            
             service_struct->Add(constructor);
             // service_struct->Field(CamelCaseToUnderscores(service.name));
             
@@ -2641,9 +2665,9 @@ switch (methodId)
                             "T", service.name, "name", method.name);
 
                         if (method.parameter) {
-                            printer.Print("this->client->subscribe(event_id, ServiceName, \"$procedure_name$\", req, err);\n", "procedure_name", method.name);
+                            printer.Print("this->client->subscribe(event_id, info.Name, \"$procedure_name$\", req, err);\n", "procedure_name", method.name);
                         } else {
-                            printer.Print("this->client->subscribe(event_id, ServiceName, \"$procedure_name$\", err);\n", "procedure_name", method.name);
+                            printer.Print("this->client->subscribe(event_id, info.Name, \"$procedure_name$\", err);\n", "procedure_name", method.name);
                         }
                     }
                     auto serviceMethod = std::make_shared<Function>("subscribe_" + method.name, subscribe_code.str(), "void", Function::fOverride);
@@ -2666,7 +2690,7 @@ switch (methodId)
                         google::protobuf::io::Printer printer(&stream, options);
                         
                         printer.Print("uint32 event_id = $id$ + this->rpc_offset;\n", "id", SimpleItoa(id));
-                        printer.Print("this->client->unsubscribe(event_id, ServiceName, \"$procedure_name$\", err);\n", 
+                        printer.Print("this->client->unsubscribe(event_id, info.Name, \"$procedure_name$\", err);\n",
                                 "procedure_name", method.name);
                         printer.Print("if (err) {\n    return;\n}\n");
                         printer.Print("this->client->unregister_event_callback(event_id);\n");
@@ -2725,25 +2749,25 @@ switch (methodId)
     
                         if (method.result) {
                             if (method.parameter) {
-                                printer.Print("return this->client->call<$Req$, $Ret$>($id$, ServiceName, \"$procedure_name$\", req, err);\n", 
+                                printer.Print("return this->client->call<$Req$, $Ret$>($id$, info.Name, \"$procedure_name$\", req, err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name,
                                     "Req", method.parameter->name + " const&", 
                                     "Ret", rettype);
                             } else {
-                                printer.Print("return this->client->call<$Ret$>($id$, ServiceName, \"$procedure_name$\", err);\n", 
+                                printer.Print("return this->client->call<$Ret$>($id$, info.Name, \"$procedure_name$\", err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name,
                                     "Ret", rettype);
                             }
                         } else {
                             if (method.parameter) {
-                                printer.Print("this->client->call_void<$Req$>($id$, ServiceName, \"$procedure_name$\", req, err);\n", 
+                                printer.Print("this->client->call_void<$Req$>($id$, info.Name, \"$procedure_name$\", req, err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name,
                                     "Req", method.parameter->name + " const&");
                             } else {
-                                printer.Print("this->client->call_void($id$, ServiceName, \"$procedure_name$\", err);\n", 
+                                printer.Print("this->client->call_void($id$, info.Name, \"$procedure_name$\", err);\n",
                                     "id", SimpleItoa(id) + " + this->rpc_offset",
                                     "procedure_name", method.name);
                             }

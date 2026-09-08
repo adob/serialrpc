@@ -5,10 +5,40 @@
 
 #include "encoding.h"
 #include "generated/example.pb_msg.h"
+#include "generated/serialrpc_protocol.pb_msg.h"
 
 using namespace lib;
 using namespace lib::testing;
 using namespace serialrpc;
+
+void test_encode_decode_discovery_response(T &t) {
+    serialrpcpb::MethodInfo method;
+    method.name = "Call";
+    method.id = 7;
+
+    serialrpcpb::ServiceInfo service;
+    service.name = "example.Service";
+    service.methods.push_back(method);
+
+    serialrpcpb::ListServicesResponse response;
+    response.services.push_back(service);
+
+    io::Buffer buffer;
+    marshal(buffer, response, error::panic);
+
+    ErrorRecorder err;
+    serialrpcpb::ListServicesResponse decoded =
+        unmarshal<serialrpcpb::ListServicesResponse>(buffer, err);
+    if (err) {
+        t.errorf("unmarshal discovery response: %v", err);
+        return;
+    }
+    if (decoded.services.size() != 1
+        || decoded.services[0].methods.size() != 1
+        || decoded.services[0].methods[0].id != 7) {
+        t.errorf("discovery response did not survive marshal round trip");
+    }
+}
 
 void test_encode_decode(T &t) {
     examplepb::SumRequest req = { .left = 41, .right = 42 };

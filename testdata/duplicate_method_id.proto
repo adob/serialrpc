@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package duplicate_method_id;
+
+import "serialrpc.proto";
+
+service DuplicateMethodIDService {
+    option (uuid) = "9c36c788-52a6-4873-a090-524e35c2313e";
+
+    rpc first(void) returns (void) { option (method_id) = 1; }
+    rpc second(void) returns (void) { option (method_id) = 1; }
+}

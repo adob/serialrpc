@@ -10,6 +10,8 @@
 #include "lib/inline_string.h"
 #include "lib/io/io.h"
 #include "serialrpc/encoding.h"
+#include "serialrpc/method_info.h"
+#include "serialrpc/service_info.h"
 
 namespace examplepb {
     struct SumRequest {
@@ -105,14 +107,20 @@ namespace examplepb {
     };
 
     struct SumService {
-        static constexpr char ServiceName[] = "SumService";
-
         // uuid: 4f90fb19-7b58-4755-bb1f-3c81dc0a6d4d
-        static constexpr std::array<uint8_t, 16> UUID = {0x4f, 0x90, 0xfb, 0x19, 0x7b, 0x58, 0x47, 0x55, 0xbb, 0x1f, 0x3c, 0x81, 0xdc, 0x0a, 0x6d, 0x4d};
+        static constexpr serialrpc::ServiceInfo info = {
+            "SumService",
+            "example",
+            {0x4f, 0x90, 0xfb, 0x19, 0x7b, 0x58, 0x47, 0x55, 0xbb, 0x1f, 0x3c, 0x81, 0xdc, 0x0a, 0x6d, 0x4d},
+            0,
+            0,
+            2,
+        };
 
-        static const int MajorVersion = 0;
-
-        static const int MinorVersion = 0;
+        static constexpr std::array<serialrpc::MethodInfo, 2> Methods = {{
+            {"sum", 1},
+            {"sum_events", 2},
+        }};
 
         virtual SumResponse sum(SumRequest const &req, lib::error err) = 0;
 
@@ -122,27 +130,40 @@ namespace examplepb {
     };
 
     struct CANService {
-        static constexpr char ServiceName[] = "CANService";
-
         // uuid: 9ef75f02-0a49-49b8-b4b6-7bfb8ad046d9
-        static constexpr std::array<uint8_t, 16> UUID = {0x9e, 0xf7, 0x5f, 0x02, 0x0a, 0x49, 0x49, 0xb8, 0xb4, 0xb6, 0x7b, 0xfb, 0x8a, 0xd0, 0x46, 0xd9};
+        static constexpr serialrpc::ServiceInfo info = {
+            "CANService",
+            "example",
+            {0x9e, 0xf7, 0x5f, 0x02, 0x0a, 0x49, 0x49, 0xb8, 0xb4, 0xb6, 0x7b, 0xfb, 0x8a, 0xd0, 0x46, 0xd9},
+            0,
+            0,
+            1,
+        };
 
-        static const int MajorVersion = 0;
-
-        static const int MinorVersion = 0;
+        static constexpr std::array<serialrpc::MethodInfo, 1> Methods = {{
+            {"send", 1},
+        }};
 
         virtual void send(CANFrame const &req, lib::error err) = 0;
     };
 
     struct ExampleService {
-        static constexpr char ServiceName[] = "ExampleService";
-
         // uuid: a569fb0d-8929-4475-bd83-3dd372078657
-        static constexpr std::array<uint8_t, 16> UUID = {0xa5, 0x69, 0xfb, 0x0d, 0x89, 0x29, 0x44, 0x75, 0xbd, 0x83, 0x3d, 0xd3, 0x72, 0x07, 0x86, 0x57};
+        static constexpr serialrpc::ServiceInfo info = {
+            "ExampleService",
+            "example",
+            {0xa5, 0x69, 0xfb, 0x0d, 0x89, 0x29, 0x44, 0x75, 0xbd, 0x83, 0x3d, 0xd3, 0x72, 0x07, 0x86, 0x57},
+            0,
+            0,
+            4,
+        };
 
-        static const int MajorVersion = 0;
-
-        static const int MinorVersion = 0;
+        static constexpr std::array<serialrpc::MethodInfo, 4> Methods = {{
+            {"say_hello", 1},
+            {"example_event1", 2},
+            {"example_event2", 3},
+            {"example_event3", 4},
+        }};
 
         virtual void say_hello(lib::error err) = 0;
 

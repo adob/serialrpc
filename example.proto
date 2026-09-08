@@ -53,6 +53,6 @@ service ExampleService {
     rpc say_hello(void) returns (void) { option (method_id) = 1; }
     
     rpc example_event1(void) returns (stream void) { option (method_id) = 2; }
-    rpc example_event2(void) returns (stream ExampleEvent) { option (method_id) = 2; }
-    rpc example_event3(ExampleEvent) returns (stream void) { option (method_id) = 2; }
+    rpc example_event2(void) returns (stream ExampleEvent) { option (method_id) = 3; }
+    rpc example_event3(ExampleEvent) returns (stream void) { option (method_id) = 4; }
 }
