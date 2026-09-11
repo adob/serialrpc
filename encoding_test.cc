@@ -2,7 +2,7 @@
 #include "example.pb_msg.h"
 
 #include "lib/testing/testing.h"
-#include "lib/io/io.h"
+import "lib/io/io.h";
 #include "lib/print.h"
 
 

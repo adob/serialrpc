@@ -4,9 +4,9 @@
 #pragma once
 
 #include <cstdint>
-#include "lib/error.h"
-#include "lib/inline_string.h"
-#include "lib/io/io.h"
+import lib.error;
+import lib.inline_string;
+import "lib/io/io.h";
 #include "serialrpc/encoding.h"
 
 namespace examplepb {

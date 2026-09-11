@@ -5,8 +5,8 @@
 #include "rpc.h"
 #include "encoding.h"
 
-#include "lib/error.h"
-#include "lib/io/io.h"
+import lib.error;
+import "lib/io/io.h";
 #include "lib/serial/serial_listener.h"
 
 namespace serialrpc {

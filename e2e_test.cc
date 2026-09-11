@@ -1,4 +1,4 @@
-#include "lib/io/io.h"
+import "lib/io/io.h";
 #include "lib/io/pipe.h"
 #include "lib/testing/testing.h"
 #include "lib/print.h"

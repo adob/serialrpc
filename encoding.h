@@ -1,10 +1,10 @@
 #pragma once
 
-#include "lib/base.h"
-#include "lib/inline_string.h"
-#include "lib/io.h"
-#include "lib/io/io.h"
-#include "lib/varint.h"
+import lib.base;
+import lib.inline_string;
+import "lib/io/io.h";
+import "lib/io/io.h";
+#include "lib/varint/varint.h"
 #include "lib/varint/varint.h"
 #include <concepts>
 

@@ -5,8 +5,8 @@
 #include "internal.h"
 #include "encoding.h"
 
-#include "lib/error.h"
-#include "lib/fmt/fmt.h"
+import lib.error;
+import "lib/fmt/fmt.h";
 #include "lib/print.h"
 
 using namespace lib;

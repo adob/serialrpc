@@ -1,11 +1,12 @@
 #pragma once
+#include "lib/sync/lock.h"
 #include <memory>
 #include <unistd.h>
 #include <cstddef>
 #include <type_traits>
 #include <atomic>
 
-#include "lib/io/io.h"
+import "lib/io/io.h";
 #include "lib/sync/atomic.h"
 #include "lib/sync/cond.h"
 #include "lib/sync/go.h"

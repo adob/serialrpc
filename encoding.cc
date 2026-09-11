@@ -1,6 +1,6 @@
 #include "encoding.h"
-#include "lib/io.h"
-#include "lib/io/io.h"
+import "lib/io/io.h";
+import "lib/io/io.h";
 #include "lib/io/util.h"
 #include "lib/print.h"
 #include "lib/varint/varint.h"
