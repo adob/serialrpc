@@ -1,7 +1,7 @@
 #pragma once
 
-#include "lib/error.h"
-#include "lib/io/io.h"
+import lib.error;
+import lib.io;
 
 namespace serialrpc {
     using namespace lib;

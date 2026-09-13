@@ -1,5 +1,5 @@
 #include "rpc.h"
-#include "lib/fmt/fmt.h"
+import lib.fmt;
 
 using namespace lib;
 
@@ -18,4 +18,3 @@ namespace serialrpc {
         details->write_to(out, err);
     }
 } // namespace serialrpc
-

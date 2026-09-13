@@ -3,7 +3,7 @@
 #include "serialrpc_objects.h"
 #include "google/protobuf/compiler/cpp/helpers.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "lib/strconv/itoa.h"
+import lib.strconv.itoa;
 #include <array>
 #include <cctype>
 #include <cstdint>
@@ -2167,9 +2167,9 @@ switch (methodId)
         includesByHeader->PathSystem("functional");
         // includesByHeader->PathSystem("functional");
         //includesByHeader->PathSystem("memory");
-        includesByHeader->Path("lib/error.h");
-        includesByHeader->Path("lib/inline_string.h");
-        includesByHeader->Path("lib/io/io.h");
+        includesByHeader->Module("lib.error");
+        includesByHeader->Module("lib.inline_string");
+        includesByHeader->Module("lib.io");
         // includesByHeader->Path("lib/str.h");
 
         auto includesBySource = std::make_shared<IncludesBySource>();

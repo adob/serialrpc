@@ -2,15 +2,15 @@
 
 #include <cstring>
 
-#include "lib/array.h"
-#include "lib/error.h"
-#include "lib/fmt/fmt.h"
-#include "lib/inline_string.h"
-#include "lib/io/io.h"
-#include "lib/panic.h"
-#include "lib/types.h"
-#include "lib/varint/varint.h"
-#include "lib/serial/serial_listener.h"
+import lib.array;
+import lib.error;
+import lib.fmt;
+import lib.inline_string;
+import lib.io;
+import lib.panic;
+import lib.types;
+import lib.varint;
+import lib.serial.serial_listener;
 
 #include "server.h"
 #include "rpc.h"

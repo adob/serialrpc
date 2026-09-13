@@ -1,12 +1,12 @@
-#include "lib/base.h"
+import lib.base;
 
-#include "lib/io/io.h"
-#include "lib/io/pipe.h"
+import lib.io;
+import lib.io.pipe;
 #include "lib/print.h"
-#include "lib/serial/serial_listener.h"
-#include "lib/sync/lock.h"
-#include "lib/time/time.h"
-#include "lib/varint/varint.h"
+import lib.serial.serial_listener;
+import lib.sync.lock;
+import lib.time;
+import lib.varint;
 
 #include "generated/example.pb_msg.h"
 #include "generated/example.pb_client.h"

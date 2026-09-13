@@ -318,12 +318,15 @@ namespace application
         void Path(const std::string& path);
         void PathSystem(const std::string& path);
         void PathMacro(const std::string& path);
+        // Add a named module dependency; name is its C++ module name.
+        void Module(const std::string& name);
 
     protected:
         void Print(google::protobuf::io::Printer& printer) const;
 
     private:
         std::vector<std::string> paths;
+        std::vector<std::string> modules;
     };
 
     class IncludesByHeader

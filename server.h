@@ -1,13 +1,13 @@
 #pragma once
 
 
-#include "lib/sync/lock.h"
+import lib.sync.lock;
 #include "rpc.h"
 #include "encoding.h"
 
-#include "lib/error.h"
-#include "lib/io/io.h"
-#include "lib/serial/serial_listener.h"
+import lib.error;
+import lib.io;
+import lib.serial.serial_listener;
 #include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
 #include "serialrpc/service_info.h"
 #include <array>

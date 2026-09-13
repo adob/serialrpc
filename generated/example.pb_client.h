@@ -6,9 +6,9 @@
 #include <array>
 #include <cstdint>
 #include <functional>
-#include "lib/error.h"
-#include "lib/inline_string.h"
-#include "lib/io/io.h"
+import lib.error;
+import lib.inline_string;
+import lib.io;
 #include "serialrpc/client.h"
 #include "example.pb_msg.h"
 

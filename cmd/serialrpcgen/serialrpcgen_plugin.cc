@@ -2,7 +2,7 @@
 
 #include "protoc_serialrpc_plugin.h"
 // #include "lib/debug/debug.h"
-#include "lib/base.h"
+import lib.base;
 #include <google/protobuf/compiler/cpp/helpers.h>
 
 using namespace lib;

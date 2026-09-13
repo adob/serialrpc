@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "lib/base.h"
-#include "lib/inline_string.h"
-#include "lib/io/io.h"
+import lib.base;
+import lib.inline_string;
+import lib.io;
 
 namespace serialrpc {
     using namespace lib;

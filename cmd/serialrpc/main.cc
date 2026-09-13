@@ -1,6 +1,6 @@
-#include "lib/error.h"
-#include "lib/fmt/fmt.h"
-#include "lib/os/stdio.h"
+import lib.error;
+import lib.fmt;
+import lib.os.stdio;
 #include "serialrpc/client.h"
 #include "serialrpc/generated/serialrpc_protocol.pb_client.h"
 
