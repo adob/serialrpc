@@ -99,11 +99,11 @@ namespace serialrpc {
         explicit DiscoveryServiceImpl(view<ServiceDescription> services)
             : services(services) {}
 
-        static void dispatch_ListServices(
+        static void dispatch_list_services(
             void *service, serial::Conn &conn, int rpc_id, error err);
 
         static constexpr std::array<DispatchFunc, 1> dispatch_table = {
-            dispatch_ListServices,
+            dispatch_list_services,
         };
 
         DiscoveryServiceImpl* service_ptr() { return this; }

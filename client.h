@@ -65,9 +65,9 @@ namespace serialrpc {
             
             Waiter response_received;
 
-            Client *client = nil;
             void *resp = nil;
-            error *err = nil;
+            String error_text;
+            bool has_error = false;
             str service_name;
             str procedure_name;
             void (*unmarshal)(CallData*, io::Reader &in, error err) = nil;
@@ -110,9 +110,7 @@ namespace serialrpc {
             Client &c = *this;
             Resp resp;
             CallData call_data = {
-                .client    = this,
                 .resp      = &resp,
-                .err       = &err,
                 .service_name = service_name,
                 .procedure_name = procedure_name,
                 .unmarshal = [](CallData *cd, io::Reader &in, error err) {
@@ -141,6 +139,9 @@ namespace serialrpc {
             }
             
             call_data.response_received.wait();
+            if (call_data.has_error) {
+                err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+            }
             return resp;
         }
 
@@ -149,9 +150,7 @@ namespace serialrpc {
             Client &c = *this;
             Resp resp;
             CallData call_data = {
-                .client    = this,
                 .resp      = &resp,
-                .err       = &err,
                 .service_name = service_name,
                 .procedure_name = procedure_name,
                 .unmarshal = [](CallData *cd, io::Reader &in, error err) {
@@ -175,6 +174,9 @@ namespace serialrpc {
             }
             
             call_data.response_received.wait();
+            if (call_data.has_error) {
+                err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+            }
             return resp;
         }
 
@@ -183,8 +185,6 @@ namespace serialrpc {
             Client &c = *this;
             
             CallData call_data = {
-                .client    = this,
-                .err       = &err,
                 .service_name = service_name,
                 .procedure_name = procedure_name,
             };
@@ -209,6 +209,9 @@ namespace serialrpc {
             }
             
             call_data.response_received.wait();
+            if (call_data.has_error) {
+                err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+            }
             return;
         }
 
@@ -216,8 +219,6 @@ namespace serialrpc {
             Client &c = *this;
             
             CallData call_data = {
-                .client    = this,
-                .err       = &err,
                 .service_name = service_name,
                 .procedure_name = procedure_name,
             };
@@ -237,6 +238,9 @@ namespace serialrpc {
             }
             
             call_data.response_received.wait();
+            if (call_data.has_error) {
+                err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+            }
             return;
         }
 
@@ -244,8 +248,6 @@ namespace serialrpc {
         void subscribe(uint32 event_id, str service_name, str procedure_name, T const &req, error err) {
             Client &c = *this;
             CallData call_data = {
-                .client    = this,
-                .err       = &err,
                 .service_name = service_name,
                 .procedure_name = procedure_name,
             };
@@ -274,13 +276,14 @@ namespace serialrpc {
             }
             
             call_data.response_received.wait();
+            if (call_data.has_error) {
+                err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+            }
         }
 
         void subscribe(uint32 event_id, str service_name, str procedure_name, error err) {
-             Client &c = *this;
+            Client &c = *this;
             CallData call_data = {
-                .client    = this,
-                .err       = &err,
                 .service_name = service_name,
                 .procedure_name = procedure_name,
             };
@@ -304,13 +307,14 @@ namespace serialrpc {
             }
             
             call_data.response_received.wait();
+            if (call_data.has_error) {
+                err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+            }
         }
 
         void unsubscribe(uint32 event_id, str service_name, str procedure_name, error err) {
             Client &c = *this;
             CallData call_data = {
-                .client    = this,
-                .err       = &err,
                 .service_name = service_name,
                 .procedure_name = procedure_name,
             };
@@ -335,6 +339,9 @@ namespace serialrpc {
             }
             
             call_data.response_received.wait();
+            if (call_data.has_error) {
+                err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+            }
         }
 
         void register_event_callback(

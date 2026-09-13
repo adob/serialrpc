@@ -444,7 +444,7 @@ void call(str endpoint, str method_name, str request_text, error err) {
         return;
     }
 
-    auto discovery = discovery_stub.ListServices({.full = true}, err);
+    auto discovery = discovery_stub.list_services({.full = true}, err);
     if (err) {
         return;
     }

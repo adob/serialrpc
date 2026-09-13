@@ -133,7 +133,7 @@ namespace {
             return;
         }
 
-        auto response = discovery.ListServices({.full = true}, err);
+        auto response = discovery.list_services({.full = true}, err);
         if (err) {
             client->close(error::ignore);
             return;

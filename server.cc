@@ -133,7 +133,7 @@ namespace {
     };
 }
 
-void DiscoveryServiceImpl::dispatch_ListServices(void *service, serial::Conn &conn, int /*rpc_id*/, error err) {
+void DiscoveryServiceImpl::dispatch_list_services(void *service, serial::Conn &conn, int /*rpc_id*/, error err) {
     auto request = unmarshal<serialrpcpb::ListServicesRequest>(conn, err);
     if (err) {
         return;

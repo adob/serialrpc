@@ -105,7 +105,7 @@ package, UUID, major and minor versions, and number of endpoints.
 
 Every `serialrpc::Server` automatically exposes
 `serialrpc.DiscoveryService`. A client can connect a generated
-`serialrpcpb::DiscoveryServiceStub` and call `ListServices` to retrieve the
+`serialrpcpb::DiscoveryServiceStub` and call `list_services` to retrieve the
 fully qualified name, UUID, version, and method table for every exposed
 service. The discovery service includes itself in the result. Setting
 `ListServicesRequest.full` also includes a shared type table for each service;
@@ -128,7 +128,7 @@ of their request, response, and nested types:
 Services:
 
 service serialrpc.DiscoveryService {
-  rpc ListServices(serialrpc.ListServicesRequest) returns (serialrpc.ListServicesResponse) {}
+  rpc list_services(serialrpc.ListServicesRequest) returns (serialrpc.ListServicesResponse) {}
 }
 
 service example.SumService {

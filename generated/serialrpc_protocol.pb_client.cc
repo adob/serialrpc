@@ -14,7 +14,7 @@ namespace serialrpcpb {
         this->name = DiscoveryService::Info.name;
     }
 
-    ListServicesResponse DiscoveryServiceStub::ListServices(ListServicesRequest const &req, lib::error err) {
-        return this->client->call<ListServicesRequest const&, ListServicesResponse>(0 + this->rpc_offset, Info.name, "ListServices", req, err);
+    ListServicesResponse DiscoveryServiceStub::list_services(ListServicesRequest const &req, lib::error err) {
+        return this->client->call<ListServicesRequest const&, ListServicesResponse>(0 + this->rpc_offset, Info.name, "list_services", req, err);
     }
 }

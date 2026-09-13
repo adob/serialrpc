@@ -391,11 +391,11 @@ namespace detail {
         };
 
         static constexpr std::array<serialrpc::MethodInfo, 1> Methods = {{
-            {"ListServices", 1, &::serialrpcpb::ListServicesRequest::Info, &::serialrpcpb::ListServicesResponse::Info, false, false},
+            {"list_services", 1, &::serialrpcpb::ListServicesRequest::Info, &::serialrpcpb::ListServicesResponse::Info, false, false},
         }};
 
         static constexpr auto const& Types = detail::serialrpc_5fprotocol_2eproto_DiscoveryService_types;
 
-        virtual ListServicesResponse ListServices(ListServicesRequest const &req, lib::error err) = 0;
+        virtual ListServicesResponse list_services(ListServicesRequest const &req, lib::error err) = 0;
     };
 }

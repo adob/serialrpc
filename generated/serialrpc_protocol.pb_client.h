@@ -16,6 +16,6 @@ namespace serialrpcpb {
     struct DiscoveryServiceStub : DiscoveryService, serialrpc::Stub {
         DiscoveryServiceStub();
 
-        ListServicesResponse ListServices(ListServicesRequest const &req, lib::error err) override;
+        ListServicesResponse list_services(ListServicesRequest const &req, lib::error err) override;
     };
 }

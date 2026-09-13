@@ -374,6 +374,9 @@ void test_bare_unknown_reply_fails_connection_and_wakes_call(testing::T &t) {
     if (!call_err) {
         t.errorf("sum() did not receive an error for bare Unknown reply");
     }
+    if (!call_err.is<ErrReply>()) {
+        t.errorf("sum() error has type %v; want ErrReply", call_err.type);
+    }
     if (!session_err) {
         t.errorf("client session did not fail after bare Unknown reply");
     }
@@ -383,7 +386,7 @@ void test_call_mtx_deadlock(testing::T &t) {
     auto [client_conn, server_side] = make_pipe();
     SerialConn server_conn(*server_side);
 
-    Summer summer;
+    BlockingSummer summer;
     serialrpc::Server server(summer);
 
     sync::go server_thread = [&] {
@@ -400,11 +403,15 @@ void test_call_mtx_deadlock(testing::T &t) {
         call_done.store(true);
     };
 
+    // Establish that the call is in flight before close() begins.
+    summer.wait_for_request();
+
     ErrorRecorder close_err;
     sync::go close_thread = [&] {
         client->close(close_err);
     };
 
+    summer.release();
     close_thread.join();
     call.join();
 
@@ -562,7 +569,7 @@ void test_e2e(testing::T &t) {
     print "client started";
 
     serialrpcpb::ListServicesResponse services =
-        discovery_stub.ListServices({}, error::panic);
+        discovery_stub.list_services({}, error::panic);
     if (services.services.size() != 4) {
         t.errorf("discovery returned %v services; want 4", services.services.size());
     } else {
@@ -604,7 +611,7 @@ void test_e2e(testing::T &t) {
     }
 
     serialrpcpb::ListServicesResponse full_services =
-        discovery_stub.ListServices({.full = true}, error::panic);
+        discovery_stub.list_services({.full = true}, error::panic);
     auto const &sum_service_info = full_services.services[1];
     auto const &sum_info = sum_service_info.methods[0];
     if (sum_info.request_type != 1 || sum_info.response_type != 2

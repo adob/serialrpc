@@ -96,7 +96,7 @@ service DiscoveryService {
   option (major_version) = 1;
   option (minor_version) = 0;
 
-  rpc ListServices(ListServicesRequest) returns (ListServicesResponse) {
+  rpc list_services(ListServicesRequest) returns (ListServicesResponse) {
     option (method_id) = 1;
   }
 }

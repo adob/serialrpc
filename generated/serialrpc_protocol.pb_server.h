@@ -16,10 +16,10 @@ namespace serialrpcpb {
     struct DiscoveryServiceBase : DiscoveryService {
         lib::serial::Conn* event_conn = nullptr;
 
-        static void dispatch_ListServices(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
+        static void dispatch_list_services(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err);
 
         static constexpr std::array<serialrpc::DispatchFunc, 1> dispatch_table = {
-            dispatch_ListServices,
+            dispatch_list_services,
         };
 
         DiscoveryServiceBase* service_ptr();

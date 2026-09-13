@@ -7,13 +7,13 @@
 using namespace lib;
 
 namespace serialrpcpb {
-    void DiscoveryServiceBase::dispatch_ListServices(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
+    void DiscoveryServiceBase::dispatch_list_services(void *service, lib::serial::Conn &conn, int rpc_id, lib::error err) {
         ListServicesRequest msg = serialrpc::unmarshal<ListServicesRequest>(conn, err);
         if (err) {
             return;
         }
         serialrpc::ServerErrorHandler handler_err(conn, err);
-        ListServicesResponse resp = static_cast<DiscoveryServiceBase*>(service)->ListServices(msg, handler_err);
+        ListServicesResponse resp = static_cast<DiscoveryServiceBase*>(service)->list_services(msg, handler_err);
         if (handler_err) {
             return;
         }

@@ -289,15 +289,10 @@ again:
 void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &shared_client) {
     Client &c = *this;
     ErrorFunc err = [&](Error &e){
-        {
-            sync::Lock lock(cond_mutex);
-
-            this->err = &e;
-
-            c.fail_pending_calls(e);
-        }
-
         sync::Lock lock(cond_mutex);
+
+        this->err = &e;
+        c.fail_pending_calls(e);
 
     again:
         State state = c.state.load();
@@ -311,6 +306,7 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
             if (!c.state.compare_and_swap(&state, Failing)) {
                 goto again;
             }
+            this->call_cond.broadcast();
             // fallthrough
 
         case Failing:
@@ -460,7 +456,8 @@ void Client::fail_pending_calls(Error &e) {
         if (call_data == nil) {
             return;
         }
-        (*call_data->err)(e);
+        call_data->error_text = fmt::stringify(e);
+        call_data->has_error = true;
         call_data->response_received.notify();
     }
 }
@@ -494,9 +491,7 @@ void Client::call_raw(
     error err) {
     Client &c = *this;
     CallData call_data = {
-        .client = this,
         .resp = response,
-        .err = &err,
         .service_name = service_name,
         .procedure_name = procedure_name,
         .unmarshal_raw = unmarshal_response,
@@ -524,6 +519,9 @@ void Client::call_raw(
     }
 
     call_data.response_received.wait();
+    if (call_data.has_error) {
+        err(ErrReply(c.name, service_name, procedure_name, call_data.error_text));
+    }
 }
 
 void Client::handle_chunked_error_reply(error err) {
@@ -541,8 +539,8 @@ void Client::handle_chunked_error_reply(error err) {
         text += " (failed to read error message)";
     }
 
-    (*call_data->err)(
-        ErrReply(c.name, call_data->service_name, call_data->procedure_name, text));
+    call_data->error_text = std::move(text);
+    call_data->has_error = true;
 
     call_data->response_received.notify();
 }
