@@ -1,6 +1,6 @@
 #pragma once
 
-import lib.error;
+import lib;
 import lib.io;
 
 namespace serialrpc {

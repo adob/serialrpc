@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include <array>
-#include <cstdint>
-#include <functional>
+#include "serialrpc/client.h"
+#include "example.pb_msg.h"
+import <array>;
+import <cstdint>;
+import <functional>;
 import lib.error;
 import lib.inline_string;
 import lib.io;
-#include "serialrpc/client.h"
-#include "example.pb_msg.h"
 
 namespace examplepb {
     struct SumServiceStub : SumService, serialrpc::Stub {

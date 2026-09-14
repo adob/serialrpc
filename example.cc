@@ -1,7 +1,6 @@
-import lib.base;
+import lib;
 
 import lib.io;
-import lib.io.pipe;
 #include "lib/print.h"
 import lib.serial.serial_listener;
 import lib.sync.lock;

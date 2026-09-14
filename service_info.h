@@ -1,7 +1,7 @@
 #pragma once
 
-#include <array>
-#include <cstdint>
+import <array>;
+import <cstdint>;
 import lib.str;
 import lib.types;
 

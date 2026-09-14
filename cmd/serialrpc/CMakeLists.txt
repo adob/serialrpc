@@ -1,10 +1,5 @@
-add_executable(serialrpc
-  call.cc
-  main.cc
-)
-
-target_compile_features(serialrpc PRIVATE cxx_std_23)
-target_link_libraries(serialrpc PRIVATE
-  serialrpc::client
-  protobuf::libprotobuf
-)
+buildtool_add_executable(serialrpc
+  LIBRARY serialrpc_sources
+  SOURCES main.cc call.cc
+  PRIVATE_LIBRARIES protobuf::libprotobuf
+  DEPENDS serialrpc_generate_protocol)

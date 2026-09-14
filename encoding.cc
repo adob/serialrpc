@@ -1,9 +1,10 @@
-#include <algorithm>
-#include <bit>
+import <algorithm>;
+import <bit>;
+import <stdint.h>;
 
-import lib.base;
+import lib;
+import lib.fmt;
 import lib.io;
-import lib.io.util;
 import lib.varint;
 
 #include "encoding.h"

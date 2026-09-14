@@ -3,15 +3,15 @@
 
 #pragma once
 
-#include <array>
-#include <cstdint>
-#include <functional>
-import lib.error;
-import lib.inline_string;
-import lib.io;
 #include "serialrpc/encoding.h"
 #include "serialrpc/method_info.h"
 #include "serialrpc/service_info.h"
+import <array>;
+import <cstdint>;
+import <functional>;
+import lib.error;
+import lib.inline_string;
+import lib.io;
 
 namespace examplepb {
     struct SumRequest {

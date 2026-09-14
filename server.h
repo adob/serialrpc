@@ -5,15 +5,16 @@ import lib.sync.lock;
 #include "rpc.h"
 #include "encoding.h"
 
+import lib.array;
 import lib.error;
 import lib.io;
 import lib.serial.serial_listener;
 #include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
 #include "serialrpc/service_info.h"
-#include <array>
-#include <tuple>
-#include <type_traits>
-#include <utility>
+import <array>;
+import <tuple>;
+import <type_traits>;
+import <utility>;
 
 namespace serialrpc {
     using namespace lib;
@@ -175,7 +176,6 @@ namespace serialrpc {
 
         void handle_request(uint32 rpc_id, serial::Conn &conn, error err) override {
             Server &s = *this;
-            printf("server: handle_request: rpc_id=%d\n", rpc_id);
             if (rpc_id >= uint32(len(s.dispatch_table))) {
                 send_code(conn, ServerMessageType::Unknown, err);
                 return;

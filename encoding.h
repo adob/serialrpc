@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vector>
+import <vector>;
 
-import lib.base;
+import lib;
 import lib.inline_string;
 import lib.io;
 

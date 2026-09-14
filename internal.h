@@ -1,6 +1,6 @@
 #pragma once
 
-import lib.base;
+import lib;
 
 namespace serialrpc {
     using namespace lib;

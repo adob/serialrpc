@@ -318,7 +318,7 @@ namespace application
         void Path(const std::string& path);
         void PathSystem(const std::string& path);
         void PathMacro(const std::string& path);
-        // Add a named module dependency; name is its C++ module name.
+        // Add an import; name is a module name or a header enclosed in <...> or quotes.
         void Module(const std::string& name);
 
     protected:

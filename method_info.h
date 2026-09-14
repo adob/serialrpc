@@ -1,6 +1,6 @@
 #pragma once
 
-#include <initializer_list>
+import <initializer_list>;
 
 import lib.str;
 import lib.types;

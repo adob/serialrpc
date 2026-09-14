@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include <array>
-#include <cstdint>
-#include <functional>
+#include "serialrpc/server.h"
+#include "serialrpc_protocol.pb_msg.h"
+import <array>;
+import <cstdint>;
+import <functional>;
 import lib.error;
 import lib.inline_string;
 import lib.io;
-#include "serialrpc/server.h"
-#include "serialrpc_protocol.pb_msg.h"
 
 namespace serialrpcpb {
     struct DiscoveryServiceBase : DiscoveryService {

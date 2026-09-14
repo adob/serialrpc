@@ -11,6 +11,9 @@
 // #include "infra/syntax/ProtoFormatter.hpp"
 
 import lib.strconv.itoa;
+import lib.str;
+import lib.types;
+import lib.panic;
 #include <google/protobuf/descriptor.pb.h>
 #include <array>
 #include <cstdint>

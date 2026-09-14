@@ -1,8 +1,7 @@
 #include "lib/print.h"
-#include <initializer_list>
+import <initializer_list>;
 
 import lib.io;
-import lib.io.util;
 import lib.serial;
 import lib.varint;
 import lib.error;
