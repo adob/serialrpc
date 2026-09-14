@@ -1,4 +1,5 @@
 #include "internal.h"
+import lib.fmt;
 
 using namespace lib;
 

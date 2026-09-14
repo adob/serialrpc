@@ -1,11 +1,17 @@
-#include "lib/io/io.h"
-#include "lib/io/pipe.h"
-#include "lib/testing/testing.h"
+// Parse external headers before importing baselib's standard-library header units.
+#include <memory>
+#include <string_view>
+#include <google/protobuf/descriptor.pb.h>
+#include <google/protobuf/dynamic_message.h>
+#include <google/protobuf/text_format.h>
+
+import lib.io;
+import lib.testing;
 #include "lib/print.h"
-#include "lib/serial/serial_listener.h"
-#include "lib/sync/lock.h"
-#include "lib/time/time.h"
-#include "lib/varint/varint.h"
+import lib.serial.serial_listener;
+import lib.sync.lock;
+import lib.time;
+import lib.varint;
 
 #include "generated/example.pb_msg.h"
 #include "generated/example.pb_client.h"
@@ -14,11 +20,6 @@
 #include "generated/serialrpc_protocol.pb_msg.h"
 #include "cmd/serialrpc/call.h"
 
-#include <memory>
-#include <string_view>
-#include <google/protobuf/descriptor.pb.h>
-#include <google/protobuf/dynamic_message.h>
-#include <google/protobuf/text_format.h>
 
 using namespace lib;
 using namespace serialrpc;

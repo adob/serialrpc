@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lib/base.h"
+import lib;
 
 namespace serialrpc {
     using namespace lib;

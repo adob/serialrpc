@@ -1,17 +1,18 @@
 #pragma once
-#include <initializer_list>
-#include <memory>
-#include <span>
+import lib.sync.lock;
+import <initializer_list>;
+import <memory>;
+import <span>;
+import <atomic>;
 #include <sys/types.h>
 #include <unistd.h>
-#include <atomic>
-#include <boost/unordered/unordered_flat_map.hpp>
+import <boost/unordered/unordered_flat_map.hpp>;
 
-#include "lib/io/io.h"
-#include "lib/sync/atomic.h"
-#include "lib/sync/cond.h"
-#include "lib/sync/go.h"
-#include "lib/sync/mutex.h"
+import lib.io;
+import lib.sync.atomic;
+import lib.sync.cond;
+import lib.sync.go;
+import lib.sync.mutex;
 
 #include "encoding.h"
 #include "rpc.h"

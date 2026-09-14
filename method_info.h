@@ -1,9 +1,9 @@
 #pragma once
 
-#include <initializer_list>
+import <initializer_list>;
 
-#include "lib/str.h"
-#include "lib/types.h"
+import lib.str;
+import lib.types;
 
 namespace serialrpc {
     using namespace lib;

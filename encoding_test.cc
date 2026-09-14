@@ -1,6 +1,6 @@
-#include "lib/testing/testing.h"
-#include "lib/io/io.h"
-#include "lib/varint/varint.h"
+import lib.testing;
+import lib.io;
+import lib.varint;
 #include "lib/print.h"
 
 #include "encoding.h"

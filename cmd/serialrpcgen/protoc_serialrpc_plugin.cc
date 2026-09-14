@@ -3,7 +3,9 @@
 #include "serialrpc_objects.h"
 #include "google/protobuf/compiler/cpp/helpers.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "lib/strconv/itoa.h"
+import lib.strconv.itoa;
+import lib.str;
+import lib.types;
 #include <array>
 #include <cctype>
 #include <cstdint>
@@ -1476,7 +1478,6 @@ namespace application
             printer.Outdent();
             
             printer.Print("}\n\n");
-            printer.Outdent();
             printer.Print("return msg;\n");
         }
 
@@ -2162,21 +2163,20 @@ switch (methodId)
         , file(file)
     {
         auto includesByHeader = std::make_shared<IncludesByHeader>();
-        includesByHeader->PathSystem("array");
-        includesByHeader->PathSystem("cstdint");
-        includesByHeader->PathSystem("functional");
-        // includesByHeader->PathSystem("functional");
-        //includesByHeader->PathSystem("memory");
-        includesByHeader->Path("lib/error.h");
-        includesByHeader->Path("lib/inline_string.h");
-        includesByHeader->Path("lib/io/io.h");
+        // Match baselib's header units to avoid duplicate standard-library definitions.
+        includesByHeader->Module("<array>");
+        includesByHeader->Module("<cstdint>");
+        includesByHeader->Module("<functional>");
+        includesByHeader->Module("lib.error");
+        includesByHeader->Module("lib.inline_string");
+        includesByHeader->Module("lib.io");
         // includesByHeader->Path("lib/str.h");
 
         auto includesBySource = std::make_shared<IncludesBySource>();
         EchoRoot root(*file);
 
         if (options.generate_shared && UsesStdVector(*root.GetFile(*file))) {
-            includesByHeader->PathSystem("vector");
+            includesByHeader->Module("<vector>");
         }
 
         if (options.generate_server) {

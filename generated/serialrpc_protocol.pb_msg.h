@@ -3,16 +3,16 @@
 
 #pragma once
 
-#include <array>
-#include <cstdint>
-#include <functional>
-#include "lib/error.h"
-#include "lib/inline_string.h"
-#include "lib/io/io.h"
-#include <vector>
 #include "serialrpc/encoding.h"
 #include "serialrpc/method_info.h"
 #include "serialrpc/service_info.h"
+import <array>;
+import <cstdint>;
+import <functional>;
+import lib.error;
+import lib.inline_string;
+import lib.io;
+import <vector>;
 
 namespace serialrpcpb {
     enum class FieldType {

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "lib/error.h"
-#include "lib/io/io.h"
-#include "lib/str.h"
+import lib.error;
+import lib.io;
+import lib.str;
 
 namespace google::protobuf {
     class DescriptorPool;

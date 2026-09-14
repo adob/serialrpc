@@ -1,5 +1,4 @@
-#include "call.h"
-
+// Parse Protobuf and its standard-library headers before importing baselib modules.
 #include <memory>
 #include <map>
 #include <set>
@@ -13,7 +12,8 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/text_format.h>
 
-#include "lib/fmt/fmt.h"
+#include "call.h"
+import lib.fmt;
 #include "serialrpc/client.h"
 #include "serialrpc/encoding.h"
 #include "serialrpc/generated/serialrpc_protocol.pb_client.h"

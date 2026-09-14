@@ -318,12 +318,15 @@ namespace application
         void Path(const std::string& path);
         void PathSystem(const std::string& path);
         void PathMacro(const std::string& path);
+        // Add an import; name is a module name or a header enclosed in <...> or quotes.
+        void Module(const std::string& name);
 
     protected:
         void Print(google::protobuf::io::Printer& printer) const;
 
     private:
         std::vector<std::string> paths;
+        std::vector<std::string> modules;
     };
 
     class IncludesByHeader

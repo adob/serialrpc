@@ -53,3 +53,7 @@ target_link_libraries(serialrpcgen_plugin PRIVATE
   protobuf::libprotobuf
   protobuf::libprotoc
 )
+if(BASELIB_USE_MODULES)
+  buildtool_target_modules(serialrpcgen_plugin PRIVATE
+    LIBRARY baselib::baselib MODULES lib lib.strconv.itoa lib.str lib.types lib.panic)
+endif()

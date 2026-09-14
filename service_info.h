@@ -1,9 +1,9 @@
 #pragma once
 
-#include <array>
-#include <cstdint>
-#include "lib/str.h"
-#include "lib/types.h"
+import <array>;
+import <cstdint>;
+import lib.str;
+import lib.types;
 
 namespace serialrpc {
     struct ServiceInfo {

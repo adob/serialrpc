@@ -1,10 +1,11 @@
-#include <algorithm>
-#include <bit>
+import <algorithm>;
+import <bit>;
+import <stdint.h>;
 
-#include "lib/base.h"
-#include "lib/io/io.h"
-#include "lib/io/util.h"
-#include "lib/varint/varint.h"
+import lib;
+import lib.fmt;
+import lib.io;
+import lib.varint;
 
 #include "encoding.h"
 

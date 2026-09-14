@@ -10,7 +10,10 @@
 //#include "amp-embedded-infra-lib/build/_deps/protobuf-src/src/google/protobuf/stubs/common.h"
 // #include "infra/syntax/ProtoFormatter.hpp"
 
-#include "lib/strconv/itoa.h"
+import lib.strconv.itoa;
+import lib.str;
+import lib.types;
+import lib.panic;
 #include <google/protobuf/descriptor.pb.h>
 #include <array>
 #include <cstdint>

@@ -1,11 +1,11 @@
-#include <initializer_list>
+#include "lib/print.h"
+import <initializer_list>;
 
-#include "lib/io/io.h"
-#include "lib/io/util.h"
-#include "lib/serial/serial.h"
-#include "lib/varint/varint.h"
-#include "lib/error.h"
-#include "lib/fmt/fmt.h"
+import lib.io;
+import lib.serial;
+import lib.varint;
+import lib.error;
+import lib.fmt;
 
 #include "client.h"
 #include "rpc.h"

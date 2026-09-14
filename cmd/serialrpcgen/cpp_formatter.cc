@@ -597,12 +597,19 @@ namespace application
         paths.emplace_back(path);
     }
 
+    void Includes::Module(const std::string& name)
+    {
+        modules.push_back(name);
+    }
+
     void Includes::Print(google::protobuf::io::Printer& printer) const
     {
         for (auto& path : paths)
             printer.Print(R"(#include $path$
 )",
                 "path", path);
+        for (const auto& name : modules)
+            printer.Print("import $name$;\n", "name", name);
     }
 
     IncludesByHeader::IncludesByHeader()
