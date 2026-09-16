@@ -238,7 +238,7 @@ ServerErrorHandler::ServerErrorHandler(serial::Conn &conn, error err)
 void ServerErrorHandler::handle(Error &rpc_error) {
     ServerErrorHandler &s = *this;
 
-    fmt::fprintf(os::stderr, "RPC error: %v\n", rpc_error);
+    fmt::fprintf(io::err, "RPC error: %v\n", rpc_error);
 
     sync::Lock lock(s.conn.write_mtx);
     s.conn.write_byte(byte(ServerMessageType::ErrorReply), s.err);

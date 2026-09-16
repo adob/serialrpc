@@ -17,16 +17,16 @@ using namespace lib;
 using namespace serialrpc;
 
 static void print_line(byte b, io::ReaderWriter &conn, error err) {
-    fmt::fprintf(os::stderr, "serialrpc raw log: ");
+    fmt::fprintf(io::err, "serialrpc raw log: ");
     for (;;) {    
-        os::stderr.write(str(&b, 1), error::ignore);
+        io::err.write(str(&b, 1), error::ignore);
         if (b == '\n') {
             return;
         }
 
         b = conn.read_byte(err);
         if (err) {
-            os::stderr.write("\n", error::ignore);
+            io::err.write("\n", error::ignore);
             return;
         }
     }
@@ -429,9 +429,9 @@ void Client::handle_log(error err) {
         return;
     }
     if (data[len(data) - 1] == '\n') {
-        fmt::fprintf(os::stderr, "serialrpc log: %s", str(data));
+        fmt::fprintf(io::err, "serialrpc log: %s", str(data));
     } else {
-        fmt::fprintf(os::stderr, "serialrpc log: %s\n", str(data));
+        fmt::fprintf(io::err, "serialrpc log: %s\n", str(data));
     }
 }
 

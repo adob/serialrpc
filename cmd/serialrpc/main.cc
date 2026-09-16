@@ -1,6 +1,6 @@
 import lib.error;
 import lib.fmt;
-import lib.os.stdio;
+import lib.io;
 #include "serialrpc/client.h"
 #include "serialrpc/generated/serialrpc_protocol.pb_client.h"
 
@@ -175,7 +175,7 @@ namespace {
 
 int main(int argc, char *argv[]) {
     ErrorFunc err = [](Error const &e) {
-        fmt::fprintf(os::stderr, "serialrpc: %v\n", e);
+        fmt::fprintf(io::err, "serialrpc: %v\n", e);
     };
 
     str command;
@@ -184,19 +184,19 @@ int main(int argc, char *argv[]) {
     }
 
     if (argc == 2 && (command == "-h" || command == "--help")) {
-        usage(os::stdout);
+        usage(io::out);
         return 0;
     }
 
     if (command == "list" || command == "ls") {
         if (argc != 3) {
-            usage(os::stderr);
+            usage(io::err);
             return 2;
         }
         list_services(str::from_c_str(argv[2]), err);
     } else if (command == "call") {
         if (argc != 4 && argc != 5) {
-            usage(os::stderr);
+            usage(io::err);
             return 2;
         }
         str request;
@@ -206,8 +206,8 @@ int main(int argc, char *argv[]) {
         serialrpc::cli::call(
             str::from_c_str(argv[2]), str::from_c_str(argv[3]), request, err);
     } else {
-        fmt::fprintf(os::stderr, "serialrpc: unknown command %q\n", argv[1]);
-        usage(os::stderr);
+        fmt::fprintf(io::err, "serialrpc: unknown command %q\n", argv[1]);
+        usage(io::err);
         return 2;
     }
     if (err) {
