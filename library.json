@@ -1,13 +1,16 @@
 {
     "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
-    "name": "lib",
+    "name": "serialrpc",
     "version": "0.0.0",
     "dependencies": {
-        "baselib": "symlink://../deps/baselib"
+        "baselib": "https://github.com/adob/baselib.git#a68d9207428acde15cbd4b96803f317f80e03bd2",
+        "buildtool": "https://github.com/adob/buildtool.git#3a25aa64ab643f76260cba9e4818954ea4dac038"
+
     },
     "build": {
-        "includeDir": "..",
+        "includeDir": ".",
         "srcDir": ".",
-        "srcFilter":  "+<**/*.cc> -<**/*_test.cc> -<**/*_unix.cc> -<test/**> -<example_*>"
+        "srcFilter": "-<*>",
+        "extraScript": "platformio/build.py"
     }
 }

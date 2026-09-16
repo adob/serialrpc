@@ -2188,7 +2188,7 @@ switch (methodId)
             includesBySource->Path(name + "_client.h");
         }
         if (options.generate_shared) {
-            includesByHeader->Path("serialrpc/encoding.h");
+            includesByHeader->Module("serialrpc.encoding");
             includesByHeader->Path("serialrpc/method_info.h");
             if (!root.GetFile(*file)->services.empty()) {
                 includesByHeader->Path("serialrpc/service_info.h");
@@ -2212,7 +2212,7 @@ switch (methodId)
         
         // includesBySource->Path("generated/echo/" + root.GetFile(*file)->name + ".pb.hpp");
         
-        includesBySource->Path("serialrpc/encoding.h");
+        includesBySource->Module("serialrpc.encoding");
         formatter.Add(includesBySource);
 
         formatter.Add(std::make_shared<SourceSnippet>("using namespace lib"));

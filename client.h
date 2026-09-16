@@ -13,8 +13,8 @@ import lib.sync.atomic;
 import lib.sync.cond;
 import lib.sync.go;
 import lib.sync.mutex;
+import serialrpc.encoding;
 
-#include "encoding.h"
 #include "rpc.h"
 #include "generated/serialrpc_protocol.pb_msg.h"
 

@@ -2,7 +2,7 @@
 // source: serialrpc_protocol.proto
 
 #include "serialrpc_protocol.pb_server.h"
-#include "serialrpc/encoding.h"
+import serialrpc.encoding;
 
 using namespace lib;
 

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "serialrpc/encoding.h"
+import serialrpc.encoding;
 #include "serialrpc/method_info.h"
 #include "serialrpc/service_info.h"
 import <array>;

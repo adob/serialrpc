@@ -1,425 +1,297 @@
-#include <sys/unistd.h>
+module;
 
-#include <cstring>
-
-import lib.array;
-import lib.error;
-import lib.fmt;
-import lib.inline_string;
-import lib.io;
-import lib.panic;
-import lib.types;
-import lib.varint;
-import lib.serial.serial_listener;
-
-#include "server.h"
 #include "rpc.h"
-#include "serialrpc/encoding.h"
 #include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
+#include "serialrpc/service_info.h"
 
-#include "lib/print.h"
+export module serialrpc.server;
 
-using namespace serialrpc;
+import lib;
+import lib.sync;
+import lib.io;
+import lib.serial;
+import serialrpc.encoding;
 
-void serialrpc::finish_msg(serial::Conn &conn, error err) {
-    conn.flush(err);
-}
+import <array>;
+import <tuple>;
+import <type_traits>;
+import <utility>;
 
-void serialrpc::send_code(serial::Conn &conn, ServerMessageType code, error err) {    
-    sync::Lock lock(conn.write_mtx);
-    conn.write_byte(byte(code), err);
-    if (err) {
-        return;
+export extern "C++"
+namespace serialrpc {
+    using namespace lib;
+
+    using DispatchFunc = void(*)(void *, serial::Conn &conn, int rpc_id, lib::error err);
+
+    struct ServerErrorHandler : ErrorReporter {
+        serial::Conn &conn;
+        error err;
+
+        ServerErrorHandler( serial::Conn &conn, error err);
+
+        virtual void handle(Error &) override;
+    } ;
+
+    void send_code(serial::Conn &conn, ServerMessageType code, error err);
+
+    struct ServerBase {
+        void serve(serial::Listener &listener, error err);
+        void accept(serial::Conn &conn, error err);
+        void send_goodbye(serial::Conn &conn, error err);
+
+      protected:
+        virtual void handle_request(uint32 rpc_id, serial::Conn &conn, error err) = 0;
+        virtual void unsubscribe_all() = 0;
+
+        void stop_accept();
+        void server_hello(serial::Conn &conn, error err);
+        void handle_goodbye(serial::Conn &conn, error err);
+
+        virtual void send_services_descriptions(serial::Conn &conn, error err) = 0;
+
+        friend ServerErrorHandler;
+    } ;
+
+    inline serialrpcpb::ServiceDef to_service_def(ServiceInfo const &info) {
+        serialrpcpb::ServiceDef def;
+        def.uuid = str(info.uuid);
+        def.major_version = info.major_version;
+        def.minor_version = info.minor_version;
+        def.num_endpoints = info.num_endpoints;
+
+        return def;
     }
 
-    conn.flush(err);
-}
+    struct ServiceDescription {
+        ServiceInfo info;
+        view<MethodInfo> methods;
+        view<TypeInfo const*> types;
+    };
 
-namespace {
-    uint32 type_id(ServiceDescription const& service, TypeInfo const* type) {
-        for (size i = 0; i < len(service.types); ++i) {
-            if (service.types[i] == type) {
-                return uint32(i + 1);
-            }
-        }
-        return 0;
+    template <typename T>
+    constexpr ServiceDescription describe_service() {
+        static_assert(T::Info.num_endpoints == T::dispatch_table.size());
+        return {
+            T::Info,
+            {T::Methods.data(), T::Methods.size()},
+            {T::Types.data(), T::Types.size()},
+        };
     }
 
-    struct DiscoveredMethod {
-        ServiceDescription const& service;
-        MethodInfo const& method;
-        bool full;
+    template <typename T, size_t... Sizes>
+    consteval auto concatenate_arrays(std::array<T, Sizes> const&... arrays) {
+        std::array<T, (Sizes + ...)> result{};
+        size_t offset = 0;
 
-        static void marshal(DiscoveredMethod const& value, io::Writer &out,
-                            error err, int nesting, Stack &stack) {
-            marshal_field(out, serialrpcpb::MethodInfo::NameFieldNumber,
-                          value.method.name, err, nesting - 1, stack);
-            marshal_field(out, serialrpcpb::MethodInfo::IdFieldNumber,
-                          value.method.id, err, nesting - 1, stack);
-            if (!value.full || err) {
-                return;
+        auto append = [&]<size_t N>(std::array<T, N> const& array) {
+            for (T const& value : array) {
+                result[offset++] = value;
             }
-            marshal_field(out, serialrpcpb::MethodInfo::RequestTypeFieldNumber,
-                          type_id(value.service, value.method.requestType),
-                          err, nesting - 1, stack);
-            marshal_field(out, serialrpcpb::MethodInfo::ResponseTypeFieldNumber,
-                          type_id(value.service, value.method.responseType),
-                          err, nesting - 1, stack);
-            marshal_field(out,
-                          serialrpcpb::MethodInfo::ClientStreamingFieldNumber,
-                          value.method.clientStreaming, err, nesting - 1, stack);
-            marshal_field(out,
-                          serialrpcpb::MethodInfo::ServerStreamingFieldNumber,
-                          value.method.serverStreaming, err, nesting - 1, stack);
-        }
-    };
-
-    struct DiscoveredField {
-        ServiceDescription const& service;
-        FieldInfo const& field;
-
-        static void marshal(DiscoveredField const& value, io::Writer &out,
-                            error err, int nesting, Stack &stack) {
-            marshal_field(out, serialrpcpb::FieldInfo::NameFieldNumber,
-                          value.field.name, err, nesting - 1, stack);
-            marshal_field(out, serialrpcpb::FieldInfo::NumberFieldNumber,
-                          value.field.number, err, nesting - 1, stack);
-            marshal_field(out, serialrpcpb::FieldInfo::TypeFieldNumber,
-                          int32(value.field.type->kind), err, nesting - 1, stack);
-            if (value.field.type->kind == TypeKind::Message
-                || value.field.type->kind == TypeKind::Enum) {
-                marshal_field(out, serialrpcpb::FieldInfo::TypeIdFieldNumber,
-                              type_id(value.service, value.field.type), err,
-                              nesting - 1, stack);
-            }
-            marshal_field(out, serialrpcpb::FieldInfo::RepeatedFieldNumber,
-                          value.field.repeated, err, nesting - 1, stack);
-        }
-    };
-
-    struct DiscoveredType {
-        ServiceDescription const& service;
-        TypeInfo const& type;
-        uint32 id;
-
-        static void marshal(DiscoveredType const& value, io::Writer &out,
-                            error err, int nesting, Stack &stack) {
-            marshal_field(out, serialrpcpb::TypeInfo::IdFieldNumber,
-                          value.id, err, nesting - 1, stack);
-            marshal_field(out, serialrpcpb::TypeInfo::TypeFieldNumber,
-                          int32(value.type.kind), err, nesting - 1, stack);
-            marshal_field(out, serialrpcpb::TypeInfo::NameFieldNumber,
-                          value.type.name, err, nesting - 1, stack);
-            for (FieldInfo const& field : value.type.fields) {
-                marshal_field(out, serialrpcpb::TypeInfo::FieldsFieldNumber,
-                              DiscoveredField{value.service, field}, err,
-                              nesting - 1, stack);
-                if (err) {
-                    return;
-                }
-            }
-            for (EnumValueInfo const& enumValue : value.type.enumValues) {
-                serialrpcpb::EnumValueInfo discovered;
-                discovered.name = enumValue.name;
-                discovered.number = enumValue.number;
-                marshal_field(out,
-                              serialrpcpb::TypeInfo::EnumValuesFieldNumber,
-                              discovered, err, nesting - 1, stack);
-                if (err) {
-                    return;
-                }
-            }
-        }
-    };
-}
-
-void DiscoveryServiceImpl::dispatch_list_services(void *service, serial::Conn &conn, int /*rpc_id*/, error err) {
-    auto request = unmarshal<serialrpcpb::ListServicesRequest>(conn, err);
-    if (err) {
-        return;
+        };
+        (append(arrays), ...);
+        return result;
     }
 
-    struct ServiceInfoView {
-        ServiceDescription const& service;
-        bool full;
+    struct DiscoveryServiceImpl {
+        static constexpr ServiceInfo Info = serialrpcpb::DiscoveryService::Info;
+        static constexpr auto Methods = serialrpcpb::DiscoveryService::Methods;
+        static constexpr auto Types = serialrpcpb::DiscoveryService::Types;
 
-        // Marshal directly from static service metadata. Building the generated
-        // ServiceInfo value here would allocate its repeated methods vector.
-        static void marshal(ServiceInfoView const& value, io::Writer &out,
-                            error err, int nesting, Stack &stack) {
-            auto const& service = value.service.info;
-            constexpr size MaxFullNameSize = 128;
-            lib::InlineString<MaxFullNameSize> full_name;
+        view<ServiceDescription> services;
 
-            if (service.package) {
-                full_name += service.package;
-                full_name += ".";
-            }
-            full_name += service.name;
+        explicit DiscoveryServiceImpl(view<ServiceDescription> services)
+            : services(services) {}
 
-            marshal_field(out, serialrpcpb::ServiceInfo::NameFieldNumber,
-                          full_name, err, nesting - 1, stack);
-            if (err) {
-                return;
-            }
-            marshal_field(out, serialrpcpb::ServiceInfo::UuidFieldNumber,
-                          str(service.uuid), err, nesting - 1, stack);
-            if (err) {
-                return;
-            }
-            marshal_field(out,
-                          serialrpcpb::ServiceInfo::MajorVersionFieldNumber,
-                          service.major_version, err, nesting - 1, stack);
-            if (err) {
-                return;
-            }
-            marshal_field(out,
-                          serialrpcpb::ServiceInfo::MinorVersionFieldNumber,
-                          service.minor_version, err, nesting - 1, stack);
-            if (err) {
-                return;
-            }
+        static void dispatch_list_services(
+            void *service, serial::Conn &conn, int rpc_id, error err);
 
-            for (MethodInfo const& method : value.service.methods) {
-                marshal_field(out,
-                              serialrpcpb::ServiceInfo::MethodsFieldNumber,
-                              DiscoveredMethod{value.service, method, value.full},
-                              err, nesting - 1, stack);
-                if (err) {
-                    return;
-                }
-            }
+        static constexpr std::array<DispatchFunc, 1> dispatch_table = {
+            dispatch_list_services,
+        };
 
-            if (value.full) {
-                for (size i = 0; i < len(value.service.types); ++i) {
-                    marshal_field(out,
-                                  serialrpcpb::ServiceInfo::TypesFieldNumber,
-                                  DiscoveredType{value.service,
-                                      *value.service.types[i], uint32(i + 1)},
-                                  err, nesting - 1, stack);
-                    if (err) {
-                        return;
-                    }
-                }
-            }
-        }
+        DiscoveryServiceImpl* service_ptr() { return this; }
+        void unsubscribe_all() {}
     };
 
-    DiscoveryServiceImpl &discovery =
-        *static_cast<DiscoveryServiceImpl*>(service);
-    sync::Lock lock(conn.write_mtx);
+    template <typename ...Services>
+    struct Server : ServerBase {
+        using ServiceRefs =
+            std::tuple<DiscoveryServiceImpl&, Services&...>;
 
-    start_reply(conn, err);
-    if (err) {
-        return;
+        template <size_t ServiceIndex, size_t MethodIndex>
+        static void dispatch_thunk(
+            void *server_ptr, serial::Conn &conn, int rpc_id, error err) {
+            Server &server = *static_cast<Server*>(server_ptr);
+            auto &service = std::get<ServiceIndex>(server.service_refs);
+            using ServiceType = std::remove_cvref_t<decltype(service)>;
+
+            ServiceType::dispatch_table[MethodIndex](
+                service.service_ptr(), conn, rpc_id, err);
+        }
+
+        template <size_t ServiceIndex, size_t... MethodIndices>
+        static consteval auto make_service_dispatch_table(
+            std::index_sequence<MethodIndices...>) {
+            return std::array<DispatchFunc, sizeof...(MethodIndices)>{
+                dispatch_thunk<ServiceIndex, MethodIndices>...,
+            };
+        }
+
+        template <size_t ServiceIndex>
+        static consteval auto make_service_dispatch_table() {
+            using ServiceType = std::remove_reference_t<
+                std::tuple_element_t<ServiceIndex, ServiceRefs>>;
+            return make_service_dispatch_table<ServiceIndex>(
+                std::make_index_sequence<
+                    ServiceType::dispatch_table.size()>{});
+        }
+
+        template <size_t... ServiceIndices>
+        static consteval auto make_dispatch_table(
+            std::index_sequence<ServiceIndices...>) {
+            return concatenate_arrays(
+                make_service_dispatch_table<ServiceIndices>()...);
+        }
+
+        inline static constexpr auto dispatch_table = make_dispatch_table(
+            std::make_index_sequence<1 + sizeof...(Services)>{});
+
+        std::array<ServiceDescription, 1 + sizeof...(Services)>
+            service_descriptions;
+        DiscoveryServiceImpl discovery_service;
+        ServiceRefs service_refs;
+
+        Server(Services&... services)
+            : service_descriptions{
+                describe_service<DiscoveryServiceImpl>(),
+                describe_service<Services>()...,
+              },
+              discovery_service({
+                  service_descriptions.data(), service_descriptions.size()}),
+              service_refs(discovery_service, services...) {}
+
+        void send_service_description(serial::Conn &conn,
+                                      serialrpcpb::ServiceDef const &service,
+                                      error err);
+
+        void send_services_descriptions(serial::Conn &conn, error err) override;
+
+        void handle_request(uint32 rpc_id, serial::Conn &conn, error err) override {
+            Server &s = *this;
+            if (rpc_id >= uint32(len(s.dispatch_table))) {
+                send_code(conn, ServerMessageType::Unknown, err);
+                return;
+            }
+
+            s.dispatch_table[rpc_id](&s, conn, rpc_id, err);
+        }
+        virtual void unsubscribe_all() override {
+            Server &s = *this;
+            std::apply(
+                [&](auto&&... service) {
+                    (service.unsubscribe_all(), ...);
+                },
+                std::forward<decltype(s.service_refs)>(s.service_refs)
+            );
+        }
+    };
+    template <typename... Services>
+    inline void Server<Services...>::send_service_description(
+        serial::Conn &conn, serialrpcpb::ServiceDef const &service, error err) {
+      Stack stack;
+      marshal_field(conn, serialrpcpb::ServerHello::ServicesFieldNumber,
+                    service, err, MaxNesting, stack);
     }
+    template <typename... Services>
+    inline void
+    Server<Services...>::send_services_descriptions(serial::Conn &conn,
+                                                    error err) {
+      Server &s = *this;
 
-    Stack stack;
-    for (ServiceDescription const& description : discovery.services) {
-        marshal_field(conn,
-                      serialrpcpb::ListServicesResponse::ServicesFieldNumber,
-                      ServiceInfoView{description, request.full}, err,
-                      MaxNesting, stack);
+      for (ServiceDescription const &desc : s.service_descriptions) {
+        s.send_service_description(conn, to_service_def(desc.info), err);
         if (err) {
-            return;
+          return;
         }
+      }
     }
 
-    conn.write_byte(Tag::End, err);
-    if (err) {
-        return;
-    }
-    conn.flush(err);
-}
+    struct CallCtx;
 
-ServerErrorHandler::ServerErrorHandler(serial::Conn &conn, error err)
-        : conn(conn), err(err) {}
+    template <typename T,typename Req, typename Resp>
+    using MemberFunc = Resp (T::*)(Req const&, error);
 
-void ServerErrorHandler::handle(Error &rpc_error) {
-    ServerErrorHandler &s = *this;
+     template <typename T, typename Resp>
+    using MemberFuncNoReq = Resp (T::*)(error);
 
-    fmt::fprintf(io::err, "RPC error: %v\n", rpc_error);
+    struct Service {
+        virtual void start() {};
+        virtual void handle(CallCtx &ctx, int method_id, str data, error err) = 0;
 
-    sync::Lock lock(s.conn.write_mtx);
-    s.conn.write_byte(byte(ServerMessageType::ErrorReply), s.err);
-    if (s.err) {
-        return;
-    }
+        virtual ~Service() {}
 
-    serialrpc::write_chunked(s.conn, fmt::sprint(rpc_error), s.err);
-    if (s.err) {
-        return;
-    }
+      protected:
+        template <typename T, typename Req, typename Resp>
+        void handle_method(
+            CallCtx &ctx,
+            T &t,
+            MemberFunc<T, Req, Resp> handler, str msg, error err);
 
-    s.conn.flush(s.err);
-}
+          template <typename T, typename Resp>
+          void handle_method(
+            CallCtx &ctx,
+            T &t,
+            MemberFuncNoReq<T, Resp> handler, error err);
+    };
 
-void serialrpc::ServerBase::handle_goodbye(serial::Conn &conn, error err) {
-    ServerBase &s = *this;
+    void send_reply_void(serial::Conn &conn, error err);
+    void start_reply(serial::Conn &conn, error err);
+    void finish_msg(serial::Conn &conn, error err);
+    void start_event(serial::Conn &conn,uint32 event_id, error err);
 
-    {
+    template <typename T>
+    void send_reply_msg(serial::Conn &conn, T const &msg, error err) {
         sync::Lock lock(conn.write_mtx);
 
-        conn.write_byte(byte(ServerGoodbye), err);
-        conn.flush(err);
-    }
-    if (err) {
-        return;
-    }
+        start_reply(conn, err);
+        if (err) {
+            return;
+        }
 
-    s.stop_accept();
-}
-void serialrpc::start_reply(serial::Conn &conn, error err) {
-    conn.write_byte(byte(Reply), err);
-}
+        marshal(conn, msg, err);
+        if (err) {
+            return;
+        }
 
-void serialrpc::start_event(serial::Conn &conn, uint32 event_id, error err) {
-    conn.write_byte(byte(Event), err);
-    if (err) {
-        return;
+        finish_msg(conn, err);
+        if (err) {
+            return;
+        }
     }
 
-    varint::write_uint32(conn, event_id+1, err);
-}
-void serialrpc::send_event(serial::Conn &conn, uint32 event_id) {
-  sync::Lock lock(conn.write_mtx);
-
-  ErrorFunc err = [](Error &) {};
-  start_event(conn, event_id, err);
-  if (err) {
-    return;
-  }
-
-  finish_msg(conn, err);
-  if (err) {
-    return;
-  }
-}
-
-void ServerBase::server_hello(serial::Conn &conn, error err) {
-    ServerBase &s = *this;
-    sync::Lock lock(conn.write_mtx);
-    
-    conn.write_byte(byte(ServerHello), err);
-    if (err) {
-        return;
-    }
-
-    write_tag(conn, serialrpcpb::ServerHello::ProtocolVersionFieldNumber, Tag::VarInt, err);
-    if (err) {
-        return;
-    }
-
-    varint::write_uint32(conn, ProtocolVersion, err);
-    if (err) {
-        return;
-    }
-
-    s.send_services_descriptions(conn, err);
-    if (err) {
-        return;
-    }
-
-    conn.write_byte(byte(Tag::End), err);
-    if (err) {
-        return;
-    }
-
-    conn.flush(err);
-}
-
-void ServerBase::accept(serial::Conn &conn, error err) {
-    ServerBase &s = *this;
-    byte b = conn.read_byte(err);
-    if (err) {
-        return;
-    }
-
-    if (b != ClientMessageType::ClientHello) {
+    template <typename T>
+    void send_event(serial::Conn &conn, uint32 event_id, T const &msg) {
         sync::Lock lock(conn.write_mtx);
-        conn.write("serialrpc: ignoring invalid input\n", err);
-        conn.flush(err);
-        return;
-    }
 
-    s.server_hello(conn, err);
-    if (err) {
-        return;
-    }
-
-    for (;;) {
-        uint32 rpc_id = varint::read_uint32(conn, err);
+        ErrorFunc err = [](Error&) {};
+        start_event(conn, event_id, err);
         if (err) {
-            s.stop_accept();
+            // s.fail();
             return;
         }
 
-        if (rpc_id == 0) {
-            s.handle_goodbye(conn, err);
-            if (err) {
-                return;
-            }
-            return;
-        }
-
-        s.handle_request(rpc_id - 1, conn, err);
+        marshal(conn, msg, err);
         if (err) {
-            s.stop_accept();
+            // s.fail();
             return;
         }
-    }
-}
 
-void ServerBase::serve(serial::Listener &listener, error err) {
-    ServerBase &s = *this;
-    int cnt = 1;
-    for (;;) {
-        fmt::printf("Waiting for connection %d...", cnt++);
-
-        serial::Conn &conn = listener.accept(err);
+        finish_msg(conn, err);
         if (err) {
+            // s.fail();
             return;
         }
-
-        fmt::printf(" connected\n");
-        
-        s.accept(conn, [](Error &e){
-            eprint "serialrpc RPC error: %v" % e;
-        });
-    }
-}
-
-void ServerBase::stop_accept() {
-    ServerBase &s = *this;
-    
-    s.unsubscribe_all();
-}
-
-void serialrpc::send_reply_void(serial::Conn &conn, error err) {
-    sync::Lock lock(conn.write_mtx);
-
-    start_reply(conn, err);
-    if (err) {
-        return;
     }
 
-    finish_msg(conn, err);
-    if (err) {
-        return;
-    }
-}
-void serialrpc::ServerBase::send_goodbye(serial::Conn &conn, error err) {
-    ServerBase &s = *this;
-
-    s.unsubscribe_all();
-
-    sync::Lock lock(conn.write_mtx);
-    conn.write_byte(byte(ServerGoodbye), err);
-    if (err) {
-        return;
-    }
-    conn.flush(err);
-    if (err) {
-        return;
-    }
+    void send_event(serial::Conn &conn, uint32 event_id);
 }

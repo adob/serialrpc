@@ -1,9 +1,9 @@
 import lib.testing;
 import lib.io;
 import lib.varint;
+import serialrpc.encoding;
 #include "lib/print.h"
 
-#include "encoding.h"
 #include "generated/example.pb_msg.h"
 #include "generated/serialrpc_protocol.pb_msg.h"
 

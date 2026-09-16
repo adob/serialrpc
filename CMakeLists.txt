@@ -63,7 +63,7 @@ get_filename_component(_parent_dir
 )
 
 # CPM checks this repo out as serialrpc-src, but public headers use includes
-# like "serialrpc/encoding.h". Create a build-tree include prefix that matches.
+# under the "serialrpc/" prefix. Create a build-tree include prefix that matches.
 set(SERIALRPC_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/include)
 file(MAKE_DIRECTORY ${SERIALRPC_INCLUDE_DIR})
 if(NOT EXISTS ${SERIALRPC_INCLUDE_DIR}/serialrpc)

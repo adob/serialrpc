@@ -6,11 +6,11 @@ import lib.serial;
 import lib.varint;
 import lib.error;
 import lib.fmt;
+import serialrpc.encoding;
 
 #include "client.h"
 #include "rpc.h"
 #include "internal.h"
-#include "encoding.h"
 #include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
 
 using namespace lib;

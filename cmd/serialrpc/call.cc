@@ -14,8 +14,8 @@
 
 #include "call.h"
 import lib.fmt;
+import serialrpc.encoding;
 #include "serialrpc/client.h"
-#include "serialrpc/encoding.h"
 #include "serialrpc/generated/serialrpc_protocol.pb_client.h"
 
 using namespace lib;

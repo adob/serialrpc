@@ -8,8 +8,8 @@
 import lib.io;
 import lib.testing;
 #include "lib/print.h"
-import lib.serial.serial_listener;
-import lib.sync.lock;
+import lib.serial;
+import lib.sync;
 import lib.time;
 import lib.varint;
 

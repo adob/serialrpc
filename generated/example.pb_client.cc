@@ -2,7 +2,7 @@
 // source: example.proto
 
 #include "example.pb_client.h"
-#include "serialrpc/encoding.h"
+import serialrpc.encoding;
 
 using namespace lib;
 
