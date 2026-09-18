@@ -30,9 +30,9 @@ CPMAddPackage(
 if(NOT CMAKE_CROSSCOMPILING)
   CPMFindPackage(
     NAME protobuf
-    VERSION 32.1.0
+    VERSION 35.1.0
     GITHUB_REPOSITORY protocolbuffers/protobuf
-    GIT_TAG v32.1
+    GIT_TAG v35.1
     OPTIONS
       "protobuf_BUILD_TESTS OFF"
       "protobuf_BUILD_CONFORMANCE OFF"
