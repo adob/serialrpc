@@ -3,7 +3,7 @@
 //#include "generated/EchoAttributes.pb.h"
 // #include "amp-embedded-infra-lib/build/protobuf/echo_attributes/generated/EchoAttributes.pb.h"
 // #include "EchoAttributes.pb.h"
-#include "serialrpc/generated/serialrpc.pb.h"
+import serialrpc.generated.serialrpcpb;
 #include "google/protobuf/compiler/cpp/helpers.h"
 // #include "google/protobuf/stubs/strutil.h"
 //#include "amp-embedded-infra-lib/build/_deps/protobuf-src/src/google/protobuf/stubs/strutil.h"

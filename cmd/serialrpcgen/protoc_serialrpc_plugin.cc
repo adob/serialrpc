@@ -1,5 +1,5 @@
 #include "protoc_serialrpc_plugin.h"
-#include "serialrpc/generated/serialrpc.pb.h"
+import serialrpc.generated.serialrpcpb;
 #include "serialrpc_objects.h"
 #include "google/protobuf/compiler/cpp/helpers.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
