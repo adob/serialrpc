@@ -18,20 +18,18 @@ GENERATED = [{
     "inputs": [
         "../serialrpc.proto",
         "../serialrpc_protocol.proto",
-        "../cmd/serialrpcgen/BUILD.py",
-        "../cmd/serialrpcgen/cpp_formatter.h",
-        "../cmd/serialrpcgen/protoc_serialrpc_plugin.h",
-        "../cmd/serialrpcgen/serialrpc_objects.h",
     ],
     "outputs": [
         "serialrpc_protocol/client.cc",
         "serialrpc_protocol/server.cc",
         "serialrpc_protocol/msg.cc",
     ],
-    "tools": ["protoc"],
+    "build_tools": {
+        "serialrpcgen": "third_party/serialrpc/cmd/serialrpcgen",
+    },
     "command": [
         "protoc",
-        "--plugin=protoc-gen-serialrpc={root}/build/release/bin/serialrpcgen",
+        "--plugin=protoc-gen-serialrpc={tool:serialrpcgen}",
         "--serialrpc_out=module=serialrpc.generated.serialrpc_protocol:{outdir}",
         "-I",
         "{root}/third_party/serialrpc",
