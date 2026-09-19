@@ -1,6 +1,7 @@
 #include <sys/unistd.h>
 
 #include <cstring>
+#include "rpc.h"
 
 import lib.array;
 import lib.error;
@@ -11,11 +12,12 @@ import lib.panic;
 import lib.types;
 import lib.varint;
 import lib.serial;
+import lib.sync;
 import serialrpc.encoding;
-
-#include "server.h"
-#include "rpc.h"
-#include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
+import serialrpc.generated.serialrpc_protocol.msg;
+import serialrpc.method_info;
+import serialrpc.server;
+import serialrpc.service_info;
 
 #include "lib/print.h"
 

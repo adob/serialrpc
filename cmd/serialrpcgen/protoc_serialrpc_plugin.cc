@@ -850,10 +850,17 @@ namespace application
         std::vector<std::pair<std::string, std::string>> config_options;
         google::protobuf::compiler::ParseGeneratorParameter(parameter, &config_options);
 
+        std::string module_name;
+
         for (const auto& [key, value] : config_options) {
             if (key == "config") {
                 // TODO parse config as yaml
-                
+            } else if (key == "module") {
+                if (value.empty()) {
+                    *error = "parameter 'module' requires a module name";
+                    return false;
+                }
+                module_name = value;
             } else {
                 *error = "unknown parameter '" + key + "'";
                 return false;
@@ -864,7 +871,32 @@ namespace application
         //eprint "Generating code for file %v with parameter '%v'" % file->name().data(), parameter;
         try
         {
-            std::string basename = google::protobuf::compiler::cpp::StripProto(file->name()) + ".pb";
+            std::string proto_basename = google::protobuf::compiler::cpp::StripProto(file->name());
+            std::string basename = proto_basename + ".pb";
+
+            if (!module_name.empty()) {
+                EchoGenerator sharedModuleGenerator(
+                    generatorContext, basename, "", file,
+                    {.generate_shared = true,
+                     .module_name = module_name + ".msg",
+                     .output_name = proto_basename + "/msg.cc"});
+                sharedModuleGenerator.GenerateSource();
+
+                EchoGenerator clientModuleGenerator(
+                    generatorContext, basename, "", file,
+                    {.generate_client = true,
+                     .module_name = module_name + ".client",
+                     .output_name = proto_basename + "/client.cc"});
+                clientModuleGenerator.GenerateSource();
+
+                EchoGenerator serverModuleGenerator(
+                    generatorContext, basename, "", file,
+                    {.generate_server = true,
+                     .module_name = module_name + ".server",
+                     .output_name = proto_basename + "/server.cc"});
+                serverModuleGenerator.GenerateSource();
+                return true;
+            }
 
             EchoGenerator clientHeaderGenerator(generatorContext, basename, "_client.h", file, {.generate_client = true});
             clientHeaderGenerator.GenerateHeader();
@@ -2157,49 +2189,54 @@ switch (methodId)
     }
 
     EchoGenerator::EchoGenerator(google::protobuf::compiler::GeneratorContext* generatorContext, const std::string& name, const std::string& suffix, const google::protobuf::FileDescriptor* file, const Options &options)
-        : stream(generatorContext->Open(name + suffix))
+        : stream(generatorContext->Open(options.output_name.empty() ? name + suffix : options.output_name))
         , printer(stream.get(), GetPrinterOptions())
         , formatter(true)
         , file(file)
+        , name(name)
+        , options(options)
     {
         auto includesByHeader = std::make_shared<IncludesByHeader>();
-        // Match baselib's header units to avoid duplicate standard-library definitions.
-        includesByHeader->Module("<array>");
-        includesByHeader->Module("<cstdint>");
-        includesByHeader->Module("<functional>");
-        includesByHeader->Module("lib.error");
-        includesByHeader->Module("lib.inline_string");
-        includesByHeader->Module("lib.io");
-        // includesByHeader->Path("lib/str.h");
-
         auto includesBySource = std::make_shared<IncludesBySource>();
         EchoRoot root(*file);
 
-        if (options.generate_shared && UsesStdVector(*root.GetFile(*file))) {
-            includesByHeader->Module("<vector>");
-        }
+        if (options.module_name.empty()) {
+            // Match baselib's header units to avoid duplicate standard-library definitions.
+            includesByHeader->Module("<array>");
+            includesByHeader->Module("<cstdint>");
+            includesByHeader->Module("<functional>");
+            includesByHeader->Module("lib.error");
+            includesByHeader->Module("lib.inline_string");
+            includesByHeader->Module("lib.io");
 
-        if (options.generate_server) {
-            includesByHeader->Path("serialrpc/server.h");
-            includesBySource->Path(name + "_server.h");
-        }
-        if (options.generate_client) {
-            includesByHeader->Path("serialrpc/client.h");
-            includesBySource->Path(name + "_client.h");
-        }
-        if (options.generate_shared) {
-            includesByHeader->Module("serialrpc.encoding");
-            includesByHeader->Path("serialrpc/method_info.h");
-            if (!root.GetFile(*file)->services.empty()) {
-                includesByHeader->Path("serialrpc/service_info.h");
+            if (options.generate_shared && UsesStdVector(*root.GetFile(*file))) {
+                includesByHeader->Module("<vector>");
             }
-            for (auto const& dependency : root.GetFile(*file)->dependencies) {
-                includesByHeader->Path(dependency->name + ".pb_msg.h");
+
+            if (options.generate_server) {
+                includesByHeader->Path("serialrpc/server.h");
+                includesBySource->Path(name + "_server.h");
             }
-            includesBySource->Path(name + "_msg.h");
-        }
-        if (options.generate_server || options.generate_client) {
-            includesByHeader->Path(name + "_msg.h");
+            if (options.generate_client) {
+                includesByHeader->Path("serialrpc/client.h");
+                includesBySource->Path(name + "_client.h");
+            }
+            if (options.generate_shared) {
+                includesByHeader->Module("serialrpc.encoding");
+                includesByHeader->Module("serialrpc.method_info");
+                if (!root.GetFile(*file)->services.empty()) {
+                    includesByHeader->Module("serialrpc.service_info");
+                }
+                for (auto const& dependency : root.GetFile(*file)->dependencies) {
+                    includesByHeader->Path(dependency->name + ".pb_msg.h");
+                }
+                includesBySource->Path(name + "_msg.h");
+            }
+            if (options.generate_server || options.generate_client) {
+                includesByHeader->Path(name + "_msg.h");
+            }
+
+            includesBySource->Module("serialrpc.encoding");
         }
         // includesByHeader->Path("infra/util/BoundedString.hpp");
         // includesByHeader->Path("infra/util/BoundedVector.hpp");
@@ -2212,7 +2249,6 @@ switch (methodId)
         
         // includesBySource->Path("generated/echo/" + root.GetFile(*file)->name + ".pb.hpp");
         
-        includesBySource->Module("serialrpc.encoding");
         formatter.Add(includesBySource);
 
         formatter.Add(std::make_shared<SourceSnippet>("using namespace lib"));
@@ -2313,7 +2349,69 @@ switch (methodId)
 )",
             "filename", file->name());
 
+        if (!options.module_name.empty()) {
+            GenerateModule();
+        } else {
+            formatter.PrintSource(printer, "");
+        }
+    }
+
+    void EchoGenerator::GenerateModule()
+    {
+        if (options.generate_client) {
+            printer.Print(
+                "module;\n"
+                "#include \"serialrpc/client.h\"\n\n");
+        }
+
+        printer.Print("export module $module$;\n", "module", options.module_name);
+
+        if (options.generate_server) {
+            printer.Print("import serialrpc.server;\n");
+        }
+
+        if (options.generate_client || options.generate_server) {
+            auto dot = options.module_name.rfind('.');
+            std::string base = options.module_name.substr(0, dot);
+            printer.Print("export import $module$;\n", "module", base + ".msg");
+        }
+
+        printer.Print(
+            "import <array>;\n"
+            "import <cstdint>;\n"
+            "import <functional>;\n"
+            "import lib.error;\n"
+            "import lib.inline_string;\n"
+            "import lib.io;\n"
+            "import serialrpc.encoding;\n");
+
+        if (options.generate_server) {
+            printer.Print("import lib.serial;\n");
+        }
+
+        if (options.generate_shared) {
+            EchoRoot root(*file);
+            if (UsesStdVector(*root.GetFile(*file))) {
+                printer.Print("import <vector>;\n");
+            }
+            printer.Print("import serialrpc.method_info;\n");
+            if (!root.GetFile(*file)->services.empty()) {
+                printer.Print("import serialrpc.service_info;\n");
+            }
+        }
+
+        printer.Print("\nexport extern \"C++\" {\n");
+
+        if (options.generate_client) {
+            printer.Print(
+                "namespace serialrpc {\n"
+                "    using ::serialrpc::connect;\n"
+                "}\n\n");
+        }
+
+        formatter.PrintHeader(printer);
         formatter.PrintSource(printer, "");
+        printer.Print("}\n");
     }
 
     void EchoGenerator::GenerateTopHeaderGuard()

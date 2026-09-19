@@ -19,6 +19,40 @@ compact message structs plus client stubs and server base classes.
 - `example.proto` and checked-in generated example files under `generated/`
 - unit and end-to-end tests for encoding, generated bindings, calls, and events
 
+`serialrpcgen` can also emit C++ named modules. Pass the module prefix to the
+plugin:
+
+```sh
+protoc \
+  --plugin=protoc-gen-serialrpc=serialrpcgen \
+  --serialrpc_out=module=proto.controller:generated \
+  -I proto proto/controller.proto
+```
+
+Module mode emits exactly three files beneath a directory named after the proto:
+
+```text
+controller/client.cc  -> proto.controller.client
+controller/server.cc  -> proto.controller.server
+controller/msg.cc     -> proto.controller.msg
+```
+
+Each file contains both declarations and definitions. The client and server
+modules re-export the message module, and generated declarations use C++ linkage:
+
+```cpp
+module;
+#include "serialrpc/client.h"
+
+export module proto.controller.client;
+export import proto.controller.msg;
+import serialrpc.encoding;
+
+export extern "C++" {
+    // exported generated declarations and client definitions
+}
+```
+
 ## Protocol Model
 
 There are two connection roles:

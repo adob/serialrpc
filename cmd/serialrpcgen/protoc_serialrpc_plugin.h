@@ -215,6 +215,8 @@ namespace application
             bool generate_server = false;
             bool generate_client = false;
             bool generate_shared = false;
+            std::string module_name;
+            std::string output_name;
         } ;
 
         EchoGenerator(google::protobuf::compiler::GeneratorContext* generatorContext, 
@@ -233,12 +235,15 @@ namespace application
         google::protobuf::io::Printer::Options GetPrinterOptions() const;
         void GenerateTopHeaderGuard();
         void GenerateBottomHeaderGuard();
+        void GenerateModule();
 
     private:
         std::unique_ptr<google::protobuf::io::ZeroCopyOutputStream> stream;
         google::protobuf::io::Printer printer;
         Entities formatter;
         const google::protobuf::FileDescriptor* file;
+        std::string name;
+        Options options;
 
         std::vector<std::shared_ptr<EnumGenerator>> enumGenerators;
         std::vector<std::shared_ptr<MessageGenerator>> messageGenerators;

@@ -9,9 +9,10 @@ import lib.fmt;
 import serialrpc.encoding;
 
 #include "client.h"
-#include "rpc.h"
+
+import serialrpc.generated.serialrpc_protocol.msg;
+
 #include "internal.h"
-#include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
 
 using namespace lib;
 using namespace serialrpc;

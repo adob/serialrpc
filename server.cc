@@ -1,8 +1,7 @@
 module;
 
 #include "rpc.h"
-#include "serialrpc/generated/serialrpc_protocol.pb_msg.h"
-#include "serialrpc/service_info.h"
+#include "server_impl.h"
 
 export module serialrpc.server;
 
@@ -11,6 +10,9 @@ import lib.sync;
 import lib.io;
 import lib.serial;
 import serialrpc.encoding;
+import serialrpc.generated.serialrpc_protocol.msg;
+import serialrpc.method_info;
+import serialrpc.service_info;
 
 import <array>;
 import <tuple>;

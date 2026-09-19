@@ -16,7 +16,10 @@ import lib.sync.mutex;
 import serialrpc.encoding;
 
 #include "rpc.h"
-#include "generated/serialrpc_protocol.pb_msg.h"
+
+namespace serialrpcpb {
+    struct ServiceDef;
+}
 
 namespace serialrpc {
     using namespace lib;
