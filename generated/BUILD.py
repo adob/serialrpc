@@ -25,14 +25,14 @@ GENERATED = [{
         "serialrpc_protocol/msg.cc",
     ],
     "build_tools": {
-        "serialrpcgen": "third_party/serialrpc/cmd/serialrpcgen",
+        "serialrpcgen": "../cmd/serialrpcgen",
     },
     "command": [
         "protoc",
         "--plugin=protoc-gen-serialrpc={tool:serialrpcgen}",
         "--serialrpc_out=module=serialrpc.generated.serialrpc_protocol:{outdir}",
         "-I",
-        "{root}/third_party/serialrpc",
-        "{root}/third_party/serialrpc/serialrpc_protocol.proto",
+        "{srcdir}/..",
+        "{srcdir}/../serialrpc_protocol.proto",
     ],
 }]
