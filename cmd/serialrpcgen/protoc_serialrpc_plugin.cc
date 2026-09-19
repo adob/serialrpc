@@ -239,7 +239,8 @@ namespace application
         std::string GenerateTypeMetadata(
             std::string const& prefix,
             google::protobuf::FileDescriptor const& file,
-            std::vector<std::shared_ptr<EchoService>> const& services)
+            std::vector<std::shared_ptr<EchoService>> const& services,
+            bool definitions)
         {
             std::string out;
             std::vector<google::protobuf::Descriptor const*> messages;
@@ -255,7 +256,11 @@ namespace application
                 out += "namespace detail {\n";
                 for (auto const* type : enums) {
                     std::string symbol = TypeSymbol(prefix, type->full_name());
-                    out += "    inline const serialrpc::TypeInfo " + symbol
+                    if (!definitions) {
+                        out += "    extern const serialrpc::TypeInfo " + symbol + ";\n";
+                        continue;
+                    }
+                    out += "    const serialrpc::TypeInfo " + symbol
                         + " = {\n"
                         + "        .kind = serialrpc::TypeKind::Enum,\n"
                         + "        .name = \"" + std::string(type->full_name())
@@ -271,24 +276,27 @@ namespace application
                 out += "}\n";
             }
 
-            for (auto const* message : messages) {
-                if (IsVoidType(*message) || message->file() != &file)
-                    continue;
-                std::string messageType = LocalMessageTypeName(*message);
-                out += "inline const serialrpc::TypeInfo " + messageType
-                    + "::Info = {\n"
-                    + "    .kind = serialrpc::TypeKind::Message,\n"
-                    + "    .name = \"" + std::string(message->full_name())
-                    + "\",\n"
-                    + "    .fields = {\n";
-                for (int i = 0; i < message->field_count(); ++i) {
-                    auto const& field = *message->field(i);
-                    out += "        {\"" + std::string(field.name()) + "\", "
-                        + SimpleItoa(field.number()) + ", "
-                        + TypePointer(prefix, field) + ", "
-                        + (field.is_repeated() ? "true" : "false") + "},\n";
+            if (definitions) {
+                for (auto const* message : messages) {
+                    if (IsVoidType(*message) || message->file() != &file)
+                        continue;
+                    std::string messageType = LocalMessageTypeName(*message);
+                    out += "const serialrpc::TypeInfo " + messageType
+                        + "::Info = {\n"
+                        + "    .kind = serialrpc::TypeKind::Message,\n"
+                        + "    .name = \"" + std::string(message->full_name())
+                        + "\",\n"
+                        + "    .fields = {\n";
+                    for (int i = 0; i < message->field_count(); ++i) {
+                        auto const& field = *message->field(i);
+                        out += "        {\"" + std::string(field.name()) + "\", "
+                            + SimpleItoa(field.number()) + ", "
+                            + TypePointer(prefix, field) + ", "
+                            + (field.is_repeated() ? "true" : "false") + "},\n";
+                    }
+                    out += "    },\n};\n";
                 }
-                out += "    },\n};\n";
+                return out;
             }
 
             out += "namespace detail {\n";
@@ -2287,7 +2295,12 @@ switch (methodId)
 
             currentEntity->Add(std::make_shared<HeaderSnippet>(
                 GenerateTypeMetadata(metadata_prefix, *file,
-                                     root.GetFile(*file)->services)));
+                                     root.GetFile(*file)->services,
+                                     false)));
+            currentEntity->Add(std::make_shared<SourceSnippet>(
+                GenerateTypeMetadata(metadata_prefix, *file,
+                                     root.GetFile(*file)->services,
+                                     true)));
 
             for (auto& service : root.GetFile(*file)->services) {
                 serviceGenerators.emplace_back(std::make_shared<ServiceGenerator>(
