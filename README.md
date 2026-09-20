@@ -247,6 +247,27 @@ server.accept(conn, err);
 bytes; the runtime defines the hello exchange, request IDs, server message
 types, and message encoding.
 
+### Raw diagnostic text
+
+The server-to-client stream may contain newline-terminated diagnostic text in
+addition to serialrpc protocol messages. The client deliberately accepts such
+text before `ServerHello` and between complete top-level server messages. This
+allows firmware to use the same serial stream for ordinary startup/status logs
+and serialrpc traffic.
+
+Raw text must not be inserted in the middle of a protocol object. For example,
+once a `Reply`, `Event`, or `ServerHello` has started, its encoded payload must
+remain contiguous through its terminating `End` tag (when the object has one).
+Bytes inserted inside that payload are interpreted as protocol data and can
+corrupt the message.
+
+The current client recognizes a raw log line when its first byte is printable
+ASCII or ASCII whitespace. After recognizing the line, it copies bytes through
+the terminating newline verbatim, so UTF-8 content within such a line is
+preserved. A line whose first byte is a non-ASCII UTF-8 byte is not currently
+recognized as raw text. This tolerance applies to server-to-client output;
+client-to-server input must still follow the serialrpc request framing.
+
 ### Handshake
 
 A client starts by sending a one-byte hello:
