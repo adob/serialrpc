@@ -1,15 +1,20 @@
 """Compile serialrpc with buildtool so its baselib module imports resolve on the MCU."""
 
-Import("env", "projenv")
+Import("env")
 
 import os
 from pathlib import Path
 import sys
+from SCons.Errors import UserError
 
 from platformio.package.manager.library import LibraryPackageManager
 from platformio.package.meta import PackageSpec
 
 root = Path(env.Dir('.').srcnode().abspath).parent
+try:
+    Import("projenv")
+except UserError:
+    projenv = None
 
 
 def dependency(name: str) -> Path:
@@ -43,9 +48,11 @@ if not (link.is_symlink() and os.readlink(link) == str(root)):
         link.unlink()
     link.symlink_to(root)
 env.Append(CPPPATH=[str(include)])
-projenv.Append(CPPPATH=[str(include)])
+if projenv is not None:
+    projenv.Append(CPPPATH=[str(include)])
 
-sys.path.insert(0, str(buildtool))
-from platformio_adapter import configure
-configure(env, projenv, root, sources=[root / 'encoding_impl.cc'],
-          search_roots=[baselib], module_roots={'serialrpc': root})
+if projenv is not None:
+    sys.path.insert(0, str(buildtool))
+    from platformio_adapter import configure
+    configure(env, projenv, root, sources=[root / 'encoding_impl.cc'],
+              search_roots=[baselib], module_roots={'serialrpc': root})
