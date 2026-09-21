@@ -2985,10 +2985,7 @@ switch (methodId)
                 options.spaces_per_indent = 4;
                 google::protobuf::io::Printer printer(&stream, options);
 
-                printer.Print("this->uuid = str($T$::Info.uuid);\n", "T", service.name);
-                printer.Print("this->major_version = $T$::Info.major_version;\n", "T", service.name);
-                printer.Print("this->minor_version = $T$::Info.minor_version;\n", "T", service.name);
-                printer.Print("this->name = $T$::Info.name;\n", "T", service.name);
+                printer.Print("this->info = &$T$::Info;\n", "T", service.name);
             }
             auto constructor = std::make_shared<Constructor>(service.name + "Stub", constructor_code.str(), 0);
             // constructor->Parameter("serialrpc::Client &client");

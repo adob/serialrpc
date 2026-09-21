@@ -1,4 +1,5 @@
 #pragma once
+#include "serialrpc/service_info.h"
 import lib.sync.lock;
 import <initializer_list>;
 import <memory>;
@@ -31,10 +32,8 @@ namespace serialrpc {
         int rpc_offset = 0;
         std::shared_ptr<Client> client;
 
-        str uuid;
-        int major_version = 0;
-        int minor_version = 0;
-        str name;
+        ServiceInfo const *info = nil;
+        String full_name();
     } ;
 
     std::shared_ptr<Client> connect(std::shared_ptr<lib::io::ReaderWriter> const &conn, str name, std::initializer_list<Stub*> service_infos, error err);

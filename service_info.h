@@ -1,7 +1,6 @@
 #pragma once
 
 import <array>;
-import <cstdint>;
 import lib.str;
 import lib.types;
 

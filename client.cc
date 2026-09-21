@@ -1,4 +1,4 @@
-#include "lib/print.h"
+#include "serialrpc/service_info.h"
 import <initializer_list>;
 
 import lib.io;
@@ -19,7 +19,7 @@ using namespace serialrpc;
 
 static void print_line(byte b, io::ReaderWriter &conn, error err) {
     fmt::fprintf(io::err, "serialrpc raw log: ");
-    for (;;) {    
+    for (;;) {
         io::err.write(str(&b, 1), error::ignore);
         if (b == '\n') {
             return;
@@ -87,10 +87,10 @@ again:
         case Starting:
         case Running:
             break;
-        
+
         case Closed:
             return;
-            
+
         case Failing: {
             sync::Lock cond_lock(c.cond_mutex);
             // err(*this->err);
@@ -245,14 +245,14 @@ again:
         }
         goto again;
     }
-    
+
     case Running:
         return;
-        
+
     case Closed:
         err(Err(fmt::sprintf(
                 "serialrpc on %q: connection closed", c.name), ErrClosed()));
-        
+
         return;
 
     case Failing: {
@@ -266,7 +266,7 @@ again:
         this->call_cond.signal();
         return;
     }
-    
+
     case Failed:
         err(Err(fmt::sprintf(
                 "serialrpc on %q failed", c.name)));
@@ -313,7 +313,7 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
         case Failing:
             this->call_cond.wait(cond_mutex);
             goto again;
-        }        
+        }
     };
 
     c.client_hello(stubs, shared_client, err);
@@ -326,7 +326,7 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
         ServerMessageType type = ServerMessageType(b);
         if (err) {
             return;
-        }        
+        }
 
         switch (type) {
         case ServerMessageType::Reply:
@@ -376,33 +376,33 @@ void Client::input(std::span<Stub *const> stubs, std::shared_ptr<Client> const &
                 return;
             }
             continue;
-            
+
         case ServerMessageType::FatalError:
             err(ErrFatal());
             return;
-            
+
         case ServerMessageType::ServerGoodbye:
             if (c.state.load() != Closed) {
                 err(Err(fmt::sprintf(
                     "serialrpc on %q: received unsolicited ServerGoodbye", c.name), ErrUnsolicitedServerGoodbye()));
             }
             return;
-        
+
         case ServerMessageType::ServerHello:
             err(Err(fmt::sprintf(
                 "serialrpc on %q: unexpected ServerHello", c.name)));
             return;
         }
-        
+
         if (is_printable(b)) {
             print_line(b, *conn, err);
             continue;
         }
-        
+
         err(Err(fmt::sprintf(
             "serialrpc on %q: unexpected byte 0x%2X", c.name, (int) type)));
         return;
-    }    
+    }
 }
 
 void Client::handle_log(error err) {
@@ -416,7 +416,7 @@ void Client::handle_log(error err) {
     if (nbytes > MaxStringSize) {
         err(Err(fmt::sprintf(
             "serialrpc on %q: log message too big", c.name)));
-        
+
         return;
     }
 
@@ -425,7 +425,7 @@ void Client::handle_log(error err) {
     if (err) {
         return;
     }
-    
+
     if (len(data) == 0) {
         return;
     }
@@ -556,7 +556,7 @@ void Client::client_hello(std::span<Stub *const> stubs, std::shared_ptr<Client> 
     if (err) {
         return;
     }
-    
+
 again:
     byte b = this->conn->read_byte(err);
     if (err) {
@@ -574,7 +574,7 @@ again:
         if (err) {
             return;
         }
-        goto again;        
+        goto again;
     }
 
     if (b != byte(ServerHello)) {
@@ -587,7 +587,7 @@ again:
     if (err) {
         return;
     }
-    
+
     sync::Lock lock(cond_mutex);
 
     State state = this->state.load();
@@ -650,35 +650,38 @@ void Client::read_services_def(std::span<Stub *const> stubs, std::shared_ptr<Cli
 }
 
 void Client::handle_service_def(
-    serialrpcpb::ServiceDef const &service_def, 
-    std::span<Stub *const> stubs, 
-    std::shared_ptr<Client> const &client, 
-    int offset, 
+    serialrpcpb::ServiceDef const &service_def,
+    std::span<Stub *const> stubs,
+    std::shared_ptr<Client> const &client,
+    int offset,
     error err) {
     Client &c = *this;
     for (Stub *const stub : stubs) {
-        if (str(stub->uuid) != str(service_def.uuid)) {
+        ServiceInfo const &info = *stub->info;
+        if (str(info.uuid) != str(service_def.uuid)) {
             continue;
         }
 
-        if (stub->major_version != service_def.major_version) {
+        if (info.major_version != service_def.major_version) {
             err(Err(fmt::sprintf(
-                "serialrpc on %q: server major version mismatch for service %q: server has %d; client has %d", c.name, stub->name, service_def.major_version, stub->major_version)));
+                "serialrpc on %q: server major version mismatch for service %q: server has %d; client has %d",
+                c.name, stub->full_name(), service_def.major_version, info.major_version)));
             return;
         }
 
-        if (stub->minor_version > service_def.minor_version) {
+        if (info.minor_version > service_def.minor_version) {
             err(Err(fmt::sprintf(
-                "serialrpc on %q: server minor version mismatch too low for service %q: server has %d; client has %d", c.name, stub->name, service_def.minor_version, stub->minor_version)));
+                "serialrpc on %q: server minor version too low for service %q: server has %d; client has %d",
+                c.name, stub->full_name(), service_def.minor_version, info.minor_version)));
             return;
         }
 
         stub->client = client;
         stub->rpc_offset = offset;
-            
+
         return;
     }
-    
+
 }
 
 Client::Client(std::shared_ptr<lib::io::ReaderWriter> const &conn)
@@ -730,7 +733,8 @@ std::shared_ptr<Client> serialrpc::connect(std::shared_ptr<lib::io::ReaderWriter
     for (Stub *const stub : stubs) {
         if (stub->client.get() != client.get()) {
             err(Err(fmt::sprintf(
-                "serialrpc on %q: server does not have expected service %q (uuid %s)", c.name, stub->name, format_uuid(stub->uuid))));
+                "serialrpc on %q: server does not have expected service %q (uuid %s)",
+                c.name, stub->info->name, format_uuid(str(stub->info->uuid)))));
             return nil;
         }
     }
@@ -744,4 +748,15 @@ std::shared_ptr<Client> serialrpc::connect(str device_path, std::initializer_lis
     }
 
     return connect(conn, device_path, service_infos, err);
+}
+
+String Stub::full_name() {
+    Stub &s = *this;
+    ServiceInfo const &info = *s.info;
+
+    if (len(info.package) > 0) {
+        return info.package + "." + info.name;
+    }
+
+    return info.name;
 }
